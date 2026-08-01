@@ -1,0 +1,129 @@
+{
+  "timestamp": "2026-08-01 13:55:43",
+  "checks": {
+    "data_leakage": {
+      "passed": true,
+      "train_val_overlap_count": 0,
+      "train_test_overlap_count": 0,
+      "val_test_overlap_count": 0,
+      "sample_overlaps": []
+    },
+    "validation_transformations": {
+      "passed": true,
+      "transforms_list": [
+        "Resize",
+        "ToTensor",
+        "Normalize"
+      ],
+      "forbidden_transforms_found": []
+    },
+    "validation_dataloader": {
+      "passed": true,
+      "sampler_type": "SequentialSampler",
+      "shuffle": false
+    },
+    "evaluation_mode": {
+      "passed": true,
+      "model_training_flag": false,
+      "model_loaded": true,
+      "prediction_logic": "argmax(logits, dim=1)"
+    },
+    "label_integrity": {
+      "passed": true,
+      "label_mapping": {
+        "genuine": 0,
+        "ai_generated": 1
+      },
+      "train_unique_labels": [
+        "ai_generated",
+        "genuine"
+      ],
+      "val_unique_labels": [
+        "ai_generated",
+        "genuine"
+      ]
+    }
+  },
+  "dataset_statistics": {
+    "train_images": 67347,
+    "val_images": 14431,
+    "test_images": 14432,
+    "total_images": 96210,
+    "unique_filepaths": 96210,
+    "class_counts_train": {
+      "genuine": 33674,
+      "ai_generated": 33673
+    },
+    "class_counts_val": {
+      "ai_generated": 7216,
+      "genuine": 7215
+    },
+    "class_counts_test": {
+      "genuine": 7216,
+      "ai_generated": 7216
+    },
+    "exact_md5_duplicates_sampled": {
+      "train_val": 1,
+      "train_test": 0,
+      "val_test": 0
+    },
+    "perceptual_near_duplicates_sampled_train_val": 1,
+    "sample_near_duplicate_pairs": [
+      {
+        "val_filepath": "D:\\demo\\data_canonical\\ai_generated\\aiflux1pro_037569.jpg",
+        "train_filepath": "D:\\demo\\data_canonical\\ai_generated\\aiflux1pro_048672.jpg",
+        "hamming_distance": 0,
+        "val_source": "ai_flux1_pro",
+        "train_source": "ai_flux1_pro"
+      }
+    ]
+  },
+  "metrics": {
+    "accuracy": 0.981,
+    "precision_macro": 0.9813,
+    "recall_macro": 0.9812,
+    "f1_macro": 0.981,
+    "f1_weighted": 0.981,
+    "roc_auc": 0.9991,
+    "confusion_matrix": [
+      [
+        489,
+        18
+      ],
+      [
+        1,
+        492
+      ]
+    ],
+    "confusion_matrix_labels": [
+      "genuine",
+      "ai_generated"
+    ],
+    "confidence_statistics": {
+      "genuine": {
+        "avg_confidence": 0.8809738460852176,
+        "min_confidence": 0.5064764022827148,
+        "max_confidence": 0.9917516112327576
+      },
+      "ai_generated": {
+        "avg_confidence": 0.8686055709333981,
+        "min_confidence": 0.5163498520851135,
+        "max_confidence": 0.9711483120918274
+      }
+    },
+    "error_analysis_summary": {
+      "false_positives_count": 18,
+      "false_negatives_count": 1
+    }
+  },
+  "source_shortcut_test": {
+    "baseline_model": "RandomForest (Canonical Metadata-only: W=256, H=256, AspectRatio=1.0, FileSize, IsParquet=0, RGB stats)",
+    "canonical_metadata_accuracy": 0.75,
+    "precision_macro": 0.7504,
+    "recall_macro": 0.7481,
+    "f1_macro": 0.7485,
+    "previous_raw_metadata_accuracy": 1.0,
+    "shortcut_eliminated": false,
+    "assessment": "\u26a0\ufe0f WARN: Metadata features still retain subtle color distribution variance."
+  }
+}
