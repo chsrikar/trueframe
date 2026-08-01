@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest cache
+.pytest_cache/
+
+# Large files / OS installers
+Operating Systems/
+*.iso
+*.exe
+
+# IDE and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
