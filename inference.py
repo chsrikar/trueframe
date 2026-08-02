@@ -21,6 +21,7 @@ from train import build_model
 from gradcam import generate_heatmap, load_image_tensor
 from metadata_forensics import analyze_metadata
 from artifact_forensics import analyze_forensic_artifacts
+from ocr_forensics import analyze_text_forensics
 from trust_fusion import (
     compute_trust_score,
     classifier_to_trust_signal,
@@ -73,6 +74,7 @@ def analyze_image(image_path: Union[str, Path]) -> dict:
           "heatmap_image": PIL.Image,   # Grad-CAM overlay
           "metadata_findings": dict,    # from metadata_forensics
           "artifact_findings": dict,    # from artifact_forensics
+          "text_findings": dict,        # from ocr_forensics
           "fusion_weights_used": dict,
           "source": str,
         }
@@ -121,11 +123,29 @@ def analyze_image(image_path: Union[str, Path]) -> dict:
     except Exception as e:
         artifact_findings = {"error": str(e), "artifact_trust_signal": 0.5}
 
-    # ---- 5. Trust Fusion ----
+    # ---- 5. OCR / Text Forensics (CPU) ----
+    try:
+        text_findings = analyze_text_forensics(image_path)
+    except Exception as e:
+        text_findings = {"error": str(e), "text_trust_signal": 1.0, "flags": []}
+
+    # ---- 6. Trust Fusion ----
     cls_signal = classifier_to_trust_signal(pred_label_raw, confidence)
     meta_signal = meta_findings.get("metadata_trust_signal", 0.5)
     art_signal = artifact_findings.get("artifact_trust_signal", 0.5)
-    trust_score = compute_trust_score(cls_signal, meta_signal, art_signal, FUSION_WEIGHTS)
+    txt_signal = text_findings.get("text_trust_signal", 1.0)
+    
+    trust_score = compute_trust_score(
+        classifier_confidence=cls_signal,
+        metadata_signal=meta_signal,
+        artifact_signal=art_signal,
+        text_signal=txt_signal,
+        weights=FUSION_WEIGHTS
+    )
+
+    # Hard override: If OCR text anomaly is detected (txt_signal <= 0.50), flag as AI-Generated or Suspicious
+    if txt_signal <= 0.50 and verdict == "Genuine (Real)":
+        verdict = "AI-Generated (Text Artifact Anomaly)"
 
     return {
         "verdict": verdict,
@@ -135,6 +155,7 @@ def analyze_image(image_path: Union[str, Path]) -> dict:
         "heatmap_image": heatmap,
         "metadata_findings": meta_findings,
         "artifact_findings": artifact_findings,
+        "text_findings": text_findings,
         "fusion_weights_used": FUSION_WEIGHTS,
         "source": image_path,
     }
@@ -160,10 +181,16 @@ def print_analysis(result: dict):
     print(f"  Artifact trust: {art.get('artifact_trust_signal', '?'):.2f}  "
           f"| ELA={art.get('ela_mean_score', '?'):.2f}  "
           f"FFT grid={art.get('fft_grid_score', '?'):.2f}")
+    txt = result.get("text_findings", {})
+    print(f"  Text trust:     {txt.get('text_trust_signal', 1.0):.2f}  "
+          f"| detected={txt.get('text_detected', False)}  "
+          f"suspicious_words={txt.get('suspicious_words', [])}")
     if meta.get("notes"):
         print(f"  Meta notes:     {meta['notes']}")
     if art.get("flags"):
         print(f"  Artifact flags: {art['flags']}")
+    if txt.get("flags"):
+        print(f"  Text flags:     {txt['flags']}")
     print("=" * 65)
 
 

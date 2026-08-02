@@ -15,9 +15,10 @@ from typing import Union
 # Default fusion weights (configurable — do not hardcode inside functions)
 # --------------------------------------------------------------------------
 FUSION_WEIGHTS: dict[str, float] = {
-    "classifier": 0.50,
-    "metadata":   0.25,
-    "artifact":   0.25,
+    "classifier": 0.45,
+    "metadata":   0.20,
+    "artifact":   0.20,
+    "text":       0.15,
 }
 
 # Output paths
@@ -31,6 +32,7 @@ def compute_trust_score(
     classifier_confidence: float,
     metadata_signal: float,
     artifact_signal: float,
+    text_signal: float = 1.0,
     weights: dict[str, float] = FUSION_WEIGHTS,
 ) -> int:
     """
@@ -38,42 +40,44 @@ def compute_trust_score(
 
     Args:
         classifier_confidence: Model softmax probability for the predicted class [0, 1].
-            Note: this is the confidence *in the prediction*, not a trust value.
-            For trust purposes, high confidence in "genuine" raises trust,
-            high confidence in "ai_generated" or "manipulated" lowers it.
-            Pass the raw probability of the "genuine" class for trust calculation,
-            or pass the confidence and let the verdict adjust the sign.
-        metadata_signal: Output of metadata_forensics.analyze_metadata()
-            ['metadata_trust_signal'] in [0, 1].
-        artifact_signal: Output of artifact_forensics.analyze_forensic_artifacts()
-            ['artifact_trust_signal'] in [0, 1].
-        weights: Dict with keys 'classifier', 'metadata', 'artifact' summing to ~1.0.
+        metadata_signal: Output of metadata_forensics ['metadata_trust_signal'] in [0, 1].
+        artifact_signal: Output of artifact_forensics ['artifact_trust_signal'] in [0, 1].
+        text_signal: Output of ocr_forensics ['text_trust_signal'] in [0, 1].
+        weights: Dict with keys 'classifier', 'metadata', 'artifact', 'text'.
 
     Returns:
         int in [0, 100] — 100 = highly trusted genuine, 0 = clear manipulation/AI.
     """
-    w_cls = weights.get("classifier", 0.5)
-    w_meta = weights.get("metadata", 0.25)
-    w_art = weights.get("artifact", 0.25)
+    w_cls = weights.get("classifier", 0.45)
+    w_meta = weights.get("metadata", 0.20)
+    w_art = weights.get("artifact", 0.20)
+    w_txt = weights.get("text", 0.15)
 
     # Normalise weights in case they don't sum to 1
-    total = w_cls + w_meta + w_art
+    total = w_cls + w_meta + w_art + w_txt
     if total <= 0:
         raise ValueError("Fusion weights must sum to a positive number.")
     w_cls /= total
     w_meta /= total
     w_art /= total
+    w_txt /= total
 
-    # Weighted average of all three trust signals in [0, 1]
+    # Weighted average of all signals in [0, 1]
     fused = (
         w_cls * float(classifier_confidence)
         + w_meta * float(metadata_signal)
         + w_art * float(artifact_signal)
+        + w_txt * float(text_signal)
     )
+
+    # Hard override: If OCR text anomaly is severe (text_signal < 0.5), cap maximum trust
+    if text_signal < 0.5:
+        fused = min(fused, text_signal)
 
     # Scale to 0–100 and clamp
     trust_score = int(round(max(0.0, min(1.0, fused)) * 100))
     return trust_score
+
 
 
 # --------------------------------------------------------------------------
