@@ -69,7 +69,7 @@ export function ForensicsPlayground() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null)
-  const [activeTab, setActiveTab] = useState<"overview" | "heatmap" | "metadata" | "artifacts" | "ocr">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "heatmap" | "metadata" | "artifacts">("overview")
   const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.75)
   const [isNegativeInverted, setIsNegativeInverted] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -360,7 +360,7 @@ export function ForensicsPlayground() {
                   {/* Tabs */}
                   {result && (
                     <div className="flex border border-border font-mono text-xs">
-                      {(["overview", "heatmap", "metadata", "artifacts", "ocr"] as const).map((tab) => (
+                      {(["overview", "heatmap", "metadata", "artifacts"] as const).map((tab) => (
                         <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -617,50 +617,6 @@ export function ForensicsPlayground() {
                           <span className="font-bold text-amber-500 block mb-2">DETECTED ARTIFACT FLAGS:</span>
                           <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px]">
                             {result.artifact_findings.flags.map((flag, idx) => (
-                              <li key={idx}>{flag}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* TAB 5: OCR / TEXT FORENSICS */}
-                  {activeTab === "ocr" && (
-                    <div className="space-y-4 font-mono text-xs">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="border border-border p-4 bg-background">
-                          <span className="text-muted-foreground block text-[10px]">TEXT ANOMALY SCORE:</span>
-                          <span className="text-xl font-bold text-foreground">
-                            {(((result.text_findings?.text_anomaly_score || 0)) * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="border border-border p-4 bg-background">
-                          <span className="text-muted-foreground block text-[10px]">TEXT TRUST SIGNAL:</span>
-                          <span className="text-xl font-bold text-foreground">
-                            {(((result.text_findings?.text_trust_signal || 1.0)) * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </div>
-
-                      {result.text_findings?.suspicious_words && result.text_findings.suspicious_words.length > 0 && (
-                        <div className="border border-red-500/50 bg-red-500/10 p-4">
-                          <span className="font-bold text-red-500 block mb-1">⚠️ CORRUPTED / SUSPICIOUS WORDS:</span>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {result.text_findings.suspicious_words.map((word, idx) => (
-                              <span key={idx} className="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-1 font-bold">
-                                {word}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {result.text_findings?.flags && result.text_findings.flags.length > 0 && (
-                        <div className="border border-border p-4 bg-background">
-                          <span className="font-bold text-foreground block mb-2">TEXT FORENSIC FLAGS:</span>
-                          <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px]">
-                            {result.text_findings.flags.map((flag, idx) => (
                               <li key={idx}>{flag}</li>
                             ))}
                           </ul>

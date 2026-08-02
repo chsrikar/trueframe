@@ -147,24 +147,6 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
 
   // Section 5: OCR & Text Forensics
   doc.setFillColor(255, 255, 255)
-  doc.rect(margin, y, contentWidth, 38, "FD")
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(10)
-  doc.setTextColor(0, 0, 0)
-  doc.text("OCR & TEXT ANOMALY FORENSICS", margin + 6, y + 8)
-
-  const textFindings = result.text_findings || {}
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9)
-  doc.setTextColor(60, 60, 60)
-  doc.text(`Text Detected: ${textFindings.text_detected ? "YES" : "NO"}`, margin + 6, y + 17)
-  doc.text(`Text Anomaly Score: ${((textFindings.text_anomaly_score || 0) * 100).toFixed(0)}%`, margin + 6, y + 24)
-  doc.text(`Text Trust Signal: ${((textFindings.text_trust_signal || 1.0) * 100).toFixed(0)}%`, margin + 100, y + 17)
-
-  const suspWords = textFindings.suspicious_words?.length ? textFindings.suspicious_words.join(", ") : "None"
-  doc.text(`Suspicious Words: ${suspWords}`, margin + 6, y + 30)
-
   // Footer Disclaimer
   doc.setFontSize(7)
   doc.setTextColor(120, 120, 120)

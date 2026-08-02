@@ -102,7 +102,7 @@ const NODES: PipelineNode[] = [
     subpoints: [
       "Noise pattern & ELA analysis",
       "FFT frequency grid detection",
-      "OCR text anomaly check"
+      "Privacy & EXIF stripping check"
     ]
   },
   {

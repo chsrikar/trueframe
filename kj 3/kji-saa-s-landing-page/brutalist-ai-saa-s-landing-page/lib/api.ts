@@ -25,15 +25,6 @@ export interface AnalysisResult {
     flags?: string[]
     [key: string]: any
   }
-  text_findings?: {
-    text_detected?: boolean
-    detected_words?: string[]
-    suspicious_words?: string[]
-    text_anomaly_score?: number
-    text_trust_signal?: number
-    flags?: string[]
-    [key: string]: any
-  }
   fusion_weights_used?: Record<string, number>
 }
 
