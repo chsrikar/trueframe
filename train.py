@@ -19,10 +19,9 @@ from dataset import TrueframeDataset, get_weighted_sampler, LABEL_TO_IDX, IDX_TO
 from gpu_check import require_cuda
 
 # Ensure UTF-8 output encoding for terminal
-sys.stdout.reconfigure(encoding='utf-8')
-
-OUTPUT_DIR = Path(r"D:\demo\outputs")
-CHECKPOINT_DIR = Path(r"D:\demo\checkpoints")
+PROJECT_ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = PROJECT_ROOT / "outputs"
+CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -448,8 +447,8 @@ def train_pipeline(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TRUEFRAME Training Pipeline")
-    parser.add_argument("--train-manifest", type=str, default=r"D:\demo\manifest_train.csv")
-    parser.add_argument("--val-manifest", type=str, default=r"D:\demo\manifest_val.csv")
+    parser.add_argument("--train-manifest", type=str, default=str(PROJECT_ROOT / "manifest_train.csv"))
+    parser.add_argument("--val-manifest", type=str, default=str(PROJECT_ROOT / "manifest_val.csv"))
     parser.add_argument("--batch-size", type=int, default=16,
                         help="Batch size per step. Default 16 for RTX 3050 4GB VRAM.")
     parser.add_argument("--phase1-epochs", type=int, default=3)
@@ -462,6 +461,7 @@ if __name__ == "__main__":
     parser.add_argument("--use-loss-weights", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--cpu", action="store_true", help="Allow running on CPU")
     default_workers = 0 if sys.platform == "win32" else 4
     parser.add_argument("--num-workers", type=int, default=default_workers,
                         help="DataLoader workers (default: 0 on Windows to avoid shared memory error 1455, 4 on Linux)")

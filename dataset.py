@@ -1,6 +1,7 @@
 import io
 import os
 import random
+from pathlib import Path
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, WeightedRandomSampler
@@ -191,8 +192,7 @@ def get_weighted_sampler(manifest_df_or_path):
     return sampler, class_weights
 
 if __name__ == "__main__":
-    # Test script locally
-    train_manifest = r"D:\demo\manifest_train.csv"
+    train_manifest = str(Path(__file__).resolve().parent / "manifest_train.csv")
     if os.path.exists(train_manifest):
         print("Testing TrueframeDataset on manifest_train.csv...")
         dataset = TrueframeDataset(train_manifest, is_train=True)

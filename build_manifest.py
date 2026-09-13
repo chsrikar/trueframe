@@ -8,8 +8,9 @@ from sklearn.model_selection import train_test_split
 # Ensure UTF-8 output encoding for terminal
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DATA_DIR = Path(r"D:\demo\data")
-OUTPUT_DIR = Path(r"D:\demo")
+PROJECT_ROOT = Path(__file__).resolve().parent
+BASE_DATA_DIR = PROJECT_ROOT / "data"
+OUTPUT_DIR = PROJECT_ROOT
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff'}
 
@@ -28,8 +29,9 @@ SFHQ_T2I_CAP = 40_000
 def is_valid_image_file(file_path):
     """Fast check: exists, supported extension, non-empty (>0 bytes)."""
     try:
-        if file_path.suffix.lower() in IMAGE_EXTENSIONS:
-            return file_path.stat().st_size > 0
+        p = Path(file_path)
+        if p.suffix.lower() in IMAGE_EXTENSIONS:
+            return p.stat().st_size > 0
     except Exception:
         pass
     return False
@@ -37,13 +39,14 @@ def is_valid_image_file(file_path):
 def scan_celebahq():
     """Scan CelebA-HQ-256 Parquet shards from data/genuine/data/*.parquet."""
     print("Scanning CelebA-HQ-256 Parquet Dataset...")
+    import pyarrow.parquet as pq
     parquet_files = sorted(glob.glob(str(BASE_DATA_DIR / "genuine" / "data" / "train-*.parquet")))
     records = []
 
     for pf in parquet_files:
         pf_abs = str(Path(pf).resolve())
-        df = pd.read_parquet(pf_abs, columns=['image'])   # just peek at row count
-        for idx in range(len(df)):
+        num_rows = pq.ParquetFile(pf_abs).metadata.num_rows
+        for idx in range(num_rows):
             records.append({
                 'filepath': f"{pf_abs}#{idx}",
                 'label': 'genuine',
@@ -72,9 +75,22 @@ def scan_cifake():
 
 def scan_casia():
     print("Scanning CASIA v2 Dataset (Authentic/Genuine only)...")
-    src_dir = BASE_DATA_DIR / "manipulated" / "casia-20-image-tampering-detection-dataset"
     records = []
-    
+    casia_candidates = [
+        BASE_DATA_DIR / "casia",
+        BASE_DATA_DIR / "casia" / "CASIA2",
+        BASE_DATA_DIR / "manipulated" / "casia-20-image-tampering-detection-dataset"
+    ]
+    src_dir = None
+    for cand in casia_candidates:
+        if cand.exists():
+            src_dir = cand
+            break
+
+    if src_dir is None:
+        print("  ⚠️  CASIA directory not found — skipping.\n")
+        return []
+
     for root, dirs, files in os.walk(src_dir):
         folder_name = Path(root).name
         if folder_name == "Au":
@@ -118,16 +134,6 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
     """
     Scan SFHQ-T2I (Synthetic Faces High Quality — Text2Image) dataset.
 
-    Expected layout:
-        D:\\demo\\data\\ai_generated\\sfhq_t2i\\
-            SFHQ_T2I_dataset.csv          ← official metadata CSV
-            FLUX1_dev_image_*.jpg  (or SDXL_image_*.jpg, etc.)
-            ...                           ← all images flat in the same folder
-
-    The CSV has at minimum a column whose name contains 'image' or 'file'
-    that holds the filename (basename only).  We also accept a full-path
-    column.  Falls back to scanning image files directly if CSV is missing.
-
     Args:
         cap:  Maximum number of records to keep (subsampled randomly).
         seed: Random seed for reproducible subsampling.
@@ -136,88 +142,91 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
         list[dict]  with keys: filepath, label, source
     """
     import random as _random
-    import csv
 
-    # --- Locate the root directory ---
-    # Support two layouts:
-    #   Layout A (expected): data/ai_generated/sfhq_t2i/
-    #   Layout B (actual downloaded): CSV at data/ai_generated/
-    #                                 images at data/ai_generated/images/images/
-    sfhq_subdir  = BASE_DATA_DIR / "ai_generated" / "sfhq_t2i"
-    ai_root      = BASE_DATA_DIR / "ai_generated"
-    images_nested = ai_root / "images" / "images"
+    # Locate the root directory and images directory
+    possible_roots = [
+        BASE_DATA_DIR / "shfq-t2i",
+        BASE_DATA_DIR / "sfhq_t2i",
+        BASE_DATA_DIR / "sfhq-t2i",
+        BASE_DATA_DIR / "ai_generated" / "sfhq_t2i",
+        BASE_DATA_DIR / "ai_generated"
+    ]
+    src_dir = None
+    images_dir = None
+    for cand in possible_roots:
+        if cand.exists():
+            nested = cand / "images" / "images"
+            single = cand / "images"
+            if nested.exists():
+                src_dir = cand
+                images_dir = nested
+                break
+            elif single.exists() and any(single.glob("*.jpg")):
+                src_dir = cand
+                images_dir = single
+                break
+            elif any(cand.glob("*.jpg")):
+                src_dir = cand
+                images_dir = cand
+                break
 
-    if sfhq_subdir.exists():
-        src_dir    = sfhq_subdir
-        images_dir = sfhq_subdir
-    elif images_nested.exists():
-        # Downloaded layout: CSV in ai_generated root, images in images/images/
-        src_dir    = ai_root
-        images_dir = images_nested
-        print(f"  Detected downloaded layout: images at `{images_dir}`")
-    else:
-        print(f"  ⚠️  SFHQ-T2I images not found.\n"
-              f"       Expected either:\n"
-              f"         {sfhq_subdir}  (recommended)\n"
-              f"         {images_nested}  (downloaded layout)\n")
+    if images_dir is None:
+        print(f"  ⚠️  SFHQ-T2I images not found in any standard path.\n")
         return []
 
-    print(f"Scanning SFHQ-T2I dataset...")
+    print(f"Scanning SFHQ-T2I dataset at `{images_dir}`...")
 
-    # --- Step 1: Try to load the official CSV ---
-    # Look for CSV in sfhq_subdir first, then ai_generated root
-    csv_candidates = list(src_dir.glob("*.csv")) or list(ai_root.glob("*.csv"))
+    # Fast inventory of valid images on disk using os.scandir
+    print("  Indexing image directory...")
+    disk_images = {}
+    for entry in os.scandir(images_dir):
+        if entry.is_file() and entry.name.lower().endswith(tuple(IMAGE_EXTENSIONS)):
+            try:
+                if entry.stat().st_size > 0:
+                    disk_images[entry.name] = entry.path
+            except Exception:
+                pass
+    print(f"  Indexed {len(disk_images):,} valid images on disk.")
+
+    # Try to load the official CSV for metadata-driven ordering/validation
+    csv_candidates = list(src_dir.glob("*.csv")) or list(images_dir.glob("*.csv"))
     records_from_csv = []
 
     if csv_candidates:
-        csv_path = csv_candidates[0]          # SFHQ_T2I_dataset.csv
+        csv_path = csv_candidates[0]
         print(f"  Found metadata CSV: {csv_path.name}")
         try:
             meta_df = pd.read_csv(csv_path, low_memory=False)
-
-            # Identify the filename column (flexible — handles different CSV schemas)
             fn_col = None
             for col in meta_df.columns:
                 if any(kw in col.lower() for kw in ("filename", "image", "file", "path", "name")):
                     fn_col = col
                     break
 
-            if fn_col is None:
-                print(f"  ⚠️  Could not identify filename column in CSV. "
-                      f"Columns found: {list(meta_df.columns)[:10]}")
-            else:
+            if fn_col is not None:
                 print(f"  Using column `{fn_col}` as image filename.")
-                for _, row in meta_df.iterrows():
-                    fname = str(row[fn_col]).strip()
-                    # Try: absolute path, then relative to images_dir, then relative to src_dir
-                    candidate = Path(fname)
-                    if not candidate.is_absolute():
-                        candidate = images_dir / candidate.name
-                    if not candidate.exists():
-                        candidate = src_dir / Path(fname).name
-                    if candidate.exists() and is_valid_image_file(candidate):
+                for fname in meta_df[fn_col]:
+                    base_fname = Path(str(fname).strip()).name
+                    if base_fname in disk_images:
                         records_from_csv.append({
-                            'filepath': str(candidate.resolve()),
+                            'filepath': disk_images[base_fname],
                             'label': 'ai_generated',
                             'source': 'sfhq_t2i'
                         })
-
                 print(f"  CSV-validated images: {len(records_from_csv):,}")
         except Exception as e:
-            print(f"  ⚠️  Failed to parse CSV ({e}). Falling back to directory scan.")
+            print(f"  ⚠️  Failed to parse CSV ({e}). Falling back to directory index.")
 
-    # --- Step 2: Directory scan fallback (or supplement if CSV gave 0 results) ---
+    # Fallback to direct directory scan if CSV yielded no valid records
     if not records_from_csv:
-        print("  Falling back to full directory scan...")
-        # Search images_dir (the resolved images folder) recursively
-        for p in images_dir.rglob("*"):
-            if p.is_file() and is_valid_image_file(p):
-                records_from_csv.append({
-                    'filepath': str(p.resolve()),
-                    'label': 'ai_generated',
-                    'source': 'sfhq_t2i'
-                })
-        print(f"  Directory scan found: {len(records_from_csv):,} images")
+        print("  Using direct disk image inventory...")
+        for path_str in disk_images.values():
+            records_from_csv.append({
+                'filepath': path_str,
+                'label': 'ai_generated',
+                'source': 'sfhq_t2i'
+            })
+        print(f"  Directory index found: {len(records_from_csv):,} images")
 
     # --- Step 3: Stratified subsample by generator model ---
     # SFHQ-T2I images are named like:

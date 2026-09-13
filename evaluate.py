@@ -27,9 +27,10 @@ from torch.utils.data import DataLoader
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-TEST_MANIFEST  = Path(r"D:\demo\manifest_test.csv")
-CHECKPOINT     = Path(r"D:\demo\checkpoints\best_model.pth")
-OUTPUT_DIR     = Path(r"D:\demo\outputs")
+PROJECT_ROOT   = Path(__file__).resolve().parent
+TEST_MANIFEST  = PROJECT_ROOT / "manifest_test.csv"
+CHECKPOINT     = PROJECT_ROOT / "checkpoints" / "best_model.pth"
+OUTPUT_DIR     = PROJECT_ROOT / "outputs"
 LABEL_NAMES    = ["genuine", "ai_generated"]
 
 

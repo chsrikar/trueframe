@@ -290,7 +290,7 @@ if __name__ == "__main__":
     import json
     import pandas as pd
 
-    test_manifest = Path(r"D:\demo\manifest_test.csv")
+    test_manifest = Path(__file__).resolve().parent / "manifest_test.csv"
     if not test_manifest.exists():
         print(f"❌ Test manifest not found: {test_manifest}")
         sys.exit(1)

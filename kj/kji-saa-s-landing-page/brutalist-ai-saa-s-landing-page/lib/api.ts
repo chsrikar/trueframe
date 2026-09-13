@@ -3,12 +3,27 @@ export interface AnalysisResult {
   verdict: "Genuine (Real)" | "AI-Generated" | "Manipulated / Synthetic"
   confidence: number
   trust_score: number
+  agreement_score?: number
+  agreement_details?: {
+    hotspot_iou: number
+    ssim_score: number
+    pearson_corr: number
+    pearson_norm?: number
+  }
   class_probabilities: {
     genuine: number
     ai_generated: number
     [key: string]: number
   }
+  inverted_prediction?: {
+    verdict: string
+    confidence: number
+    class_probabilities: Record<string, number>
+  }
   heatmap_b64?: string | null
+  heatmap_fused_b64?: string | null
+  heatmap_normal_b64?: string | null
+  heatmap_inverted_b64?: string | null
   metadata_findings: {
     metadata_trust_signal: number
     has_exif: boolean
@@ -65,9 +80,20 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
     verdict: "Genuine (Real)",
     confidence: 0.9842,
     trust_score: 96,
+    agreement_score: 0.912,
+    agreement_details: {
+      hotspot_iou: 0.88,
+      ssim_score: 0.94,
+      pearson_corr: 0.92,
+    },
     class_probabilities: {
       genuine: 0.9842,
       ai_generated: 0.0158,
+    },
+    inverted_prediction: {
+      verdict: "Genuine (Real)",
+      confidence: 0.9610,
+      class_probabilities: { genuine: 0.9610, ai_generated: 0.0390 }
     },
     heatmap_b64: null,
     metadata_findings: {
@@ -91,9 +117,20 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
     verdict: "AI-Generated",
     confidence: 0.9961,
     trust_score: 12,
+    agreement_score: 0.865,
+    agreement_details: {
+      hotspot_iou: 0.84,
+      ssim_score: 0.89,
+      pearson_corr: 0.87,
+    },
     class_probabilities: {
       genuine: 0.0039,
       ai_generated: 0.9961,
+    },
+    inverted_prediction: {
+      verdict: "AI-Generated",
+      confidence: 0.9880,
+      class_probabilities: { genuine: 0.0120, ai_generated: 0.9880 }
     },
     heatmap_b64: null,
     metadata_findings: {
@@ -119,12 +156,22 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
     previewUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop",
     verdict: "AI-Generated",
     confidence: 0.9418,
-    trust_score: 28,
+    trust_score: 24,
+    agreement_score: 0.785,
+    agreement_details: {
+      hotspot_iou: 0.76,
+      ssim_score: 0.81,
+      pearson_corr: 0.79,
+    },
     class_probabilities: {
       genuine: 0.0582,
       ai_generated: 0.9418,
     },
-    heatmap_b64: null,
+    inverted_prediction: {
+      verdict: "AI-Generated",
+      confidence: 0.9150,
+      class_probabilities: { genuine: 0.0850, ai_generated: 0.9150 }
+    },
     metadata_findings: {
       metadata_trust_signal: 0.40,
       has_exif: true,

@@ -126,7 +126,7 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "Combine metadata + model + ELA/OCR",
+      "Combine metadata + model + Dual-CAM",
       "Weighted multi-modal fusion",
       "Output 0–100 fused trust score"
     ]

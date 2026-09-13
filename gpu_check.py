@@ -8,23 +8,24 @@ import torch
 sys.stdout.reconfigure(encoding='utf-8')
 
 
-def require_cuda() -> "torch.device":
+def require_cuda(allow_cpu: bool = False) -> "torch.device":
     """
     Assert CUDA GPU is available and return torch.device('cuda').
-    Exits with a clear error message if no GPU is found — the pipeline
-    must never silently fall back to CPU training.
+    Supports optional CPU fallback if allow_cpu=True or --cpu is passed.
     """
     if not torch.cuda.is_available():
+        if allow_cpu or "--cpu" in sys.argv:
+            print("\n[INFO] CUDA GPU not detected. Proceeding on CPU as requested/fallback.")
+            return torch.device("cpu")
         print(
             "\n" + "=" * 70 + "\n"
             "ERROR: CUDA GPU not detected.\n"
-            "This pipeline requires GPU training (RTX 3050) and will NOT\n"
-            "proceed on CPU — it would take 10–20× longer and is not supported.\n\n"
+            "This pipeline was configured for GPU training (e.g. RTX 3050).\n"
+            "To run on CPU, pass the --cpu flag.\n\n"
             "Possible fixes:\n"
-            "  1. Ensure you installed the CUDA build of PyTorch:\n"
-            "       pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128\n"
-            "  2. Check that your NVIDIA drivers are installed (run: nvidia-smi)\n"
-            "  3. Confirm the GPU is not disabled in Device Manager\n"
+            "  1. To run on CPU: pass the --cpu argument\n"
+            "  2. If using GPU: ensure NVIDIA drivers are installed (run: nvidia-smi)\n"
+            "  3. Ensure the CUDA build of PyTorch is installed\n"
             + "=" * 70
         )
         sys.exit(1)

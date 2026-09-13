@@ -13,8 +13,9 @@ from train import build_model
 # Ensure UTF-8 output
 sys.stdout.reconfigure(encoding='utf-8')
 
-TEST_MANIFEST_PATH = Path(r"D:\demo\manifest_test.csv")
-MODEL_PATH = Path(r"D:\demo\checkpoints\best_model.pth")
+PROJECT_ROOT = Path(__file__).resolve().parent
+TEST_MANIFEST_PATH = PROJECT_ROOT / "manifest_test.csv"
+MODEL_PATH = PROJECT_ROOT / "checkpoints" / "best_model.pth"
 
 def verify_test_samples(num_samples=5):
     print("="*80)
@@ -27,7 +28,7 @@ def verify_test_samples(num_samples=5):
 
     if not MODEL_PATH.exists():
         print(f"⚠️ Checkpoint `{MODEL_PATH}` not found. Attempting fallback to latest checkpoint...")
-        fallback_path = Path(r"D:\demo\checkpoints\latest_checkpoint.pth")
+        fallback_path = PROJECT_ROOT / "checkpoints" / "latest_checkpoint.pth"
         if fallback_path.exists():
             print(f"Found latest checkpoint `{fallback_path}`.")
             ckpt = torch.load(fallback_path, map_location='cpu')

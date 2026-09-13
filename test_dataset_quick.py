@@ -1,9 +1,11 @@
 """Quick verification of TrueframeDataset after parquet LRU cache fix."""
 import pandas as pd
+from pathlib import Path
 from dataset import TrueframeDataset, IDX_TO_LABEL
 
 print("=== Re-testing TrueframeDataset after parquet LRU cache fix ===")
-df = pd.read_csv(r"D:\demo\manifest_train.csv")
+manifest_path = Path(__file__).resolve().parent / "manifest_train.csv"
+df = pd.read_csv(manifest_path)
 
 # 5 parquet + 5 file-based samples
 parquet_rows = df[df["filepath"].str.contains("#")].sample(5, random_state=1)
