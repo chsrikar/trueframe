@@ -19,7 +19,7 @@ export function Footer() {
             TRUEFRAME
           </span>
           <span className="text-[10px] font-mono tracking-widest text-muted-foreground">
-            {"(C) 2026 TEAM TRUEFRAME. SYNC 2026 HACKATHON."}
+            {"© 2026 TRUEFRAME. ALL RIGHTS RESERVED."}
           </span>
         </div>
         <div className="flex items-center gap-6">

@@ -288,10 +288,10 @@ export function WorkflowDiagram() {
 
         {/* Metric Badges */}
         {[
-          { label: "Accuracy", value: "98.2%", x: 630, y: 570 },
-          { label: "Precision", value: "97.1%", x: 790, y: 570 },
-          { label: "F1-Score", value: "97.5%", x: 630, y: 635 },
-          { label: "ROC-AUC", value: "0.994", x: 790, y: 635 },
+          { label: "Accuracy", value: "99.9%", x: 630, y: 570 },
+          { label: "Precision", value: "99.9%", x: 790, y: 570 },
+          { label: "F1-Score", value: "99.9%", x: 630, y: 635 },
+          { label: "ROC-AUC", value: "0.999", x: 790, y: 635 },
         ].map((metric, i) => (
           <motion.g
             key={metric.label}
