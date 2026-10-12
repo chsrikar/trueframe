@@ -1,3 +1,4 @@
+import torch_compat  # noqa: F401
 import os
 import sys
 import random

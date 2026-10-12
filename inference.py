@@ -11,6 +11,7 @@ Combines:
 Single public API:
     analyze_image(image_path) -> dict
 """
+import torch_compat  # noqa: F401
 import io
 import sys
 import json
@@ -51,7 +52,7 @@ _DEVICE = None
 def _get_model_and_device():
     global _MODEL, _DEVICE
     if _MODEL is None:
-        _DEVICE = require_cuda()
+        _DEVICE = require_cuda(allow_cpu=True)
         if not CHECKPOINT_PATH.exists():
             print(f"ERROR: Checkpoint not found at {CHECKPOINT_PATH}")
             print("  Run train.py first to produce a trained model.")

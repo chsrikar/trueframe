@@ -5,6 +5,7 @@ via EfficientNet-B0 (model.features[-1]), fuses the spatial maps, and calculates
 multi-metric spatial agreement score (IoU, SSIM, Pearson Correlation).
 Requires GPU (calls require_cuda()).
 """
+import torch_compat  # noqa: F401
 import io
 import os
 import random
@@ -367,7 +368,7 @@ def generate_heatmap(
 
 
 if __name__ == "__main__":
-    device = require_cuda()
+    device = require_cuda(allow_cpu=True)
     print("=== Dual Grad-CAM & Fusion Smoke Test ===")
     model = build_model(num_classes=2)
     if CHECKPOINT_PATH.exists():

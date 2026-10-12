@@ -16,31 +16,13 @@ const TEAM_MEMBERS = [
     skills: ["PyTorch", "EfficientNet-B0", "Trust Fusion", "Grad-CAM"],
   },
   {
-    id: "kalidas",
-    name: "KALIDAS KJ",
+    id: "vimal",
+    name: "VIMAL J MATHEW",
     role: "Full Stack & UI Engineer",
     badge: "FULL-STACK",
     icon: Code,
     bio: "Built the Brutalist AI web application, interactive Forensics Playground, real-time heatmap renderer, and FastAPI server API bridge.",
     skills: ["Next.js 14", "TypeScript", "TailwindCSS", "FastAPI"],
-  },
-  {
-    id: "abu",
-    name: "ABOO SHAMAR",
-    role: "UI/UX & Visual Designer",
-    badge: "DESIGNING",
-    icon: Binary,
-    bio: "Crafted the neo-brutalist high-contrast visual identity, interactive dashboard layout, typography grid, and user flow aesthetics.",
-    skills: ["Brutalist UI", "Framer Motion", "Visual Design", "UX Architecture"],
-  },
-  {
-    id: "anto",
-    name: "ANTO GEROM T",
-    role: "Forensics & Artifacts Engineer",
-    badge: "FORENSICS",
-    icon: Shield,
-    bio: "Developed EXIF metadata extraction, ELA+ compression analysis, and 2D FFT spectral frequency peak detection algorithms.",
-    skills: ["Metadata EXIF", "ELA+ Forensics", "FFT Spectrum", "Signal Fusion"],
   },
 ]
 
@@ -76,12 +58,11 @@ export function FeatureGrid() {
         </motion.h2>
       </div>
 
-      {/* Team Grid (Big 2x2 Card Grid) */}
+      {/* Team Grid (Big 2-Card Grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-2 border-foreground">
         {TEAM_MEMBERS.map((member, i) => {
           const Icon = member.icon
           const isRight = i % 2 === 1
-          const isBottom = i >= 2
 
           return (
             <motion.div
@@ -92,7 +73,7 @@ export function FeatureGrid() {
               transition={{ delay: i * 0.12, duration: 0.5, ease }}
               className={`flex flex-col p-8 lg:p-10 min-h-[300px] bg-background ${
                 !isRight ? "md:border-r-2 border-foreground" : ""
-              } ${!isBottom ? "border-b-2 border-foreground" : ""}`}
+              } ${i === 0 ? "border-b-2 md:border-b-0 border-foreground" : ""}`}
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b-2 border-foreground pb-5 mb-6">

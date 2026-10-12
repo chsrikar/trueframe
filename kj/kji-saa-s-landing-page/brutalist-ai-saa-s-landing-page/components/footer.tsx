@@ -23,7 +23,7 @@ export function Footer() {
           </span>
         </div>
         <div className="flex items-center gap-6">
-          {["Anto", "Srikar", "Kalidas", "Abu"].map((link, i) => (
+          {["Srikar", "Vimal"].map((link, i) => (
             <motion.a
               key={link}
               href="#"

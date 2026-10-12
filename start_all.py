@@ -7,7 +7,9 @@ import time
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.resolve()
-FRONTEND_DIR = ROOT_DIR / "kj 3" / "kji-saa-s-landing-page" / "brutalist-ai-saa-s-landing-page"
+FRONTEND_DIR = ROOT_DIR / "kj" / "kji-saa-s-landing-page" / "brutalist-ai-saa-s-landing-page"
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = ROOT_DIR / "kj 3" / "kji-saa-s-landing-page" / "brutalist-ai-saa-s-landing-page"
 
 def main():
     print("=" * 65)

@@ -1,3 +1,4 @@
+import torch_compat  # noqa: F401
 import os
 import sys
 import json
@@ -271,7 +272,11 @@ def train_pipeline(args):
     set_seed(args.seed)
 
     # --- GPU enforcement: exits immediately if no CUDA GPU found ---
-    device = require_cuda()
+    device = require_cuda(allow_cpu=args.cpu)
+    if device.type == 'cpu':
+        cpu_cores = os.cpu_count() or 4
+        torch.set_num_threads(cpu_cores)
+        print(f"   CPU multi-threading enabled: {cpu_cores} threads")
     print(f"   Seed: {args.seed}")
     
     train_csv = Path(args.train_manifest)

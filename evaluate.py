@@ -8,6 +8,7 @@ Outputs:
   outputs/confusion_matrix.png  — Plotted 3x3 confusion matrix
   outputs/error_analysis.md     — 10–15 worst misclassifications
 """
+import torch_compat  # noqa: F401
 import io
 import sys
 import json
@@ -39,7 +40,7 @@ LABEL_NAMES    = ["genuine", "ai_generated"]
 # --------------------------------------------------------------------------
 def evaluate_test_set(batch_size: int = 32, num_workers: int = 0) -> dict:
     """Run full test-set evaluation. Returns metrics dict."""
-    device = require_cuda()
+    device = require_cuda(allow_cpu=True)
 
     if not TEST_MANIFEST.exists():
         print(f"ERROR: Test manifest not found: {TEST_MANIFEST}")

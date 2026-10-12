@@ -7,8 +7,7 @@ import base64
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
-
+import torch_compat  # noqa: F401
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
