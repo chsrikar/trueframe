@@ -7,3 +7,4 @@ outputs/
 *.pth
 *.pt
 .hf_cache/
+*.tsbuildinfo
