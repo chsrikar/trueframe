@@ -187,9 +187,26 @@ def evaluate(model, dataloader, criterion, device, use_amp=True):
     return epoch_loss, epoch_acc, epoch_f1, per_class_metrics
 
 def generate_model_card(best_metrics, train_df, val_df, hyperparams):
+    demo_mode = os.environ.get("TRUEFRAME_DEMO_MODE", "0") == "1"
     sources = train_df.groupby(["label", "source"]).size().to_dict()
     generators = sorted(train_df.loc[train_df.label == "ai_generated", "generator"].astype(str).unique()) if "generator" in train_df else []
-    card_content = f"""# TRUEFRAME Model Card
+    if demo_mode:
+        card_content = f"""# TRUEFRAME Closed-Set Demo Model Card
+
+## Demo-only warning
+This checkpoint was trained and selected using the same small set of `gimg/` and `aiimg/` examples. It is intended only to replay those known demo examples. It has no held-out validation or test result, and its scores must not be presented as evidence of general prediction accuracy.
+
+## Model
+- Architecture: torchvision EfficientNet-B0 with ImageNet weights and a two-layer MLP head (1280 → 256 GELU → 2).
+- Labels: `genuine` (0), `ai_generated` (1).
+- Inputs: RGB images resized/cropped to 256 × 256 and ImageNet-normalized.
+- Training and selection images: {len(train_df)}; validation reuses those same images.
+- Label counts by folder: `{sources}`.
+
+Confidence is raw softmax output and is not calibrated. This is a memorization demo, not an authenticity detector.
+"""
+    else:
+        card_content = f"""# TRUEFRAME Model Card
 
 ## Intended use
 Research prototype for binary classification of the specific genuine and AI-generated face images in the declared manifests. It is not a general deepfake or image manipulation detector and should not be used as proof of authenticity.

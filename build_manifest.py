@@ -12,7 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 BASE_DATA_DIR = Path(os.environ.get("TRUEFRAME_DATA_DIR", PROJECT_ROOT / "data")).expanduser().resolve()
 OUTPUT_DIR = Path(os.environ.get("TRUEFRAME_MANIFEST_DIR", PROJECT_ROOT)).expanduser().resolve()
 
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff'}
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff', '.heic', '.heif'}
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
 
 # ---------------------------------------------------------------------------
 # SFHQ-T2I subsampling cap
@@ -295,6 +301,33 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
     return final_records
 
 
+def scan_demo_folders():
+    """Read the user's small, explicitly labeled gimg/aiimg demo folders."""
+    records = []
+    folder_labels = (("gimg", "genuine", "camera_photo"), ("aiimg", "ai_generated", "chatgpt"))
+    for folder_name, label, generator in folder_labels:
+        folder = BASE_DATA_DIR / folder_name
+        if not folder.is_dir():
+            raise FileNotFoundError(
+                f"Demo mode expected `{folder}`. Upload both `gimg/` and `aiimg/` folders to the configured data directory."
+            )
+        paths = sorted(
+            p for p in folder.rglob("*")
+            if p.is_file() and is_valid_image_file(p)
+        )
+        if not paths:
+            raise ValueError(f"Demo folder `{folder}` contains no supported, non-empty images.")
+        for path in paths:
+            records.append({
+                "filepath": str(path.resolve()),
+                "label": label,
+                "source": folder_name,
+                "generator": generator,
+            })
+        print(f"Demo folder `{folder_name}`: {len(paths)} images labeled `{label}`")
+    return records
+
+
 def split_records(df: pd.DataFrame, seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
     """Create a generator-held-out test and validation split for synthetic images.
 
@@ -353,15 +386,19 @@ def split_records(df: pd.DataFrame, seed: int = 42) -> tuple[pd.DataFrame, pd.Da
 
 def build_and_save_manifests():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    all_records = []
-
-    all_records.extend(scan_celebahq())      # CelebA-HQ-256 (Genuine faces)
-    # scan_cifake() intentionally removed — replaced by SFHQ-T2I below.
-    # CIFAKE is CIFAR-10 objects (non-face); SFHQ-T2I supplies synthetic faces.
-    all_records.extend(scan_casia())         # CASIA v2 authentic images only
-    # Tiny-GenImage is intentionally excluded: it contains non-face categories,
-    # which would change the problem from face-image detection to source recognition.
-    all_records.extend(scan_sfhq_t2i())     # SFHQ-T2I (replaces CIFAKE)
+    demo_mode = os.environ.get("TRUEFRAME_DEMO_MODE", "0") == "1"
+    if demo_mode:
+        print("DEMO MODE: training and validation use the same gimg/aiimg examples; this measures memorization only.")
+        all_records = scan_demo_folders()
+    else:
+        all_records = []
+        all_records.extend(scan_celebahq())      # CelebA-HQ-256 (Genuine faces)
+        # scan_cifake() intentionally removed — replaced by SFHQ-T2I below.
+        # CIFAKE is CIFAR-10 objects (non-face); SFHQ-T2I supplies synthetic faces.
+        all_records.extend(scan_casia())         # CASIA v2 authentic images only
+        # Tiny-GenImage is intentionally excluded: it contains non-face categories,
+        # which would change the problem from face-image detection to source recognition.
+        all_records.extend(scan_sfhq_t2i())     # SFHQ-T2I (replaces CIFAKE)
 
     df_full = pd.DataFrame(all_records)
     print(f"Total manifest records: {len(df_full):,}\n")
@@ -371,8 +408,22 @@ def build_and_save_manifests():
     df_full.to_csv(full_path, index=False)
     print(f"Saved full manifest to `{full_path}`")
     
-    # Keep synthetic generator families disjoint across partitions.
-    train_df, val_df, test_df, protocol = split_records(df_full, seed=42)
+    if demo_mode:
+        # Deliberate for a closed-set product demo only. Never report these as
+        # validation/test accuracy because all three manifests contain the same images.
+        train_df = df_full.sample(frac=1, random_state=42).reset_index(drop=True)
+        val_df = train_df.copy()
+        test_df = train_df.copy()
+        protocol = {
+            "name": "closed_set_demo_memorization",
+            "training_data": "gimg/ and aiimg/ folders",
+            "validation_and_test": "same images as training; reused only so the demo checkpoint can be selected and exported",
+            "valid_generalization_metrics": False,
+            "warning": "Do not report accuracy, validation, or test performance from this demo run.",
+        }
+    else:
+        # Keep synthetic generator families disjoint across partitions.
+        train_df, val_df, test_df, protocol = split_records(df_full, seed=42)
     
     train_path = OUTPUT_DIR / "manifest_train.csv"
     val_path = OUTPUT_DIR / "manifest_val.csv"

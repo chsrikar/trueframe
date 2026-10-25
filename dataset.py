@@ -10,6 +10,12 @@ from torchvision import transforms
 from PIL import Image
 import pyarrow.parquet as pq
 
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
 import collections
 
 # Label dictionary (2-class binary classification)

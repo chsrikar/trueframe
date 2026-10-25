@@ -11,25 +11,13 @@ TRUEFRAME is a research prototype that classifies face images as `genuine` or `a
 - Softmax confidence is uncalibrated. The optional metadata/artifact `trust_score` is a hand-weighted heuristic, not a probability or validated forensic conclusion.
 - Existing files in `outputs/` are historical local artifacts and must not be quoted as results for the new generator-held-out protocol. Regenerate manifests, train a new checkpoint, and run test evaluation.
 
-## Run on Google Colab with a T4
+## Colab closed-set demo
 
-1. Open `colab_train.ipynb` in Colab and select **Runtime → Change runtime type → T4 GPU**.
-2. Keep the GitHub clone cell pointed at `https://github.com/chsrikar/trueframe.git`.
-3. The notebook can download the data into Colab's temporary disk. It downloads the SFHQ-T2I archive from the public Hugging Face mirror (about 22.9 GB compressed), extracts a stratified 40,000-image sample, and downloads the three CelebA-HQ Parquet shards (about 1.4 GB) from a third-party Hugging Face mirror. Allow substantial free disk space and download time; Colab temporary data is lost when its runtime is deleted, so rerunning requires downloading again.
-4. The CelebA-HQ mirror's Hub card currently lists its license as unknown. Review the [dataset card](https://huggingface.co/datasets/saitsharipov/CelebA-HQ) and usage rights before academic use or redistribution. SFHQ-T2I is synthetic; see the [dataset project and citation](https://github.com/SelfishGene/SFHQ-T2I-dataset).
-5. To prepare data manually instead, use this layout:
+`colab_train.ipynb` has a separate small-demo workflow for the user's labeled example folders. Upload `gimg/` (genuine/mobile examples) and `aiimg/` (AI-generated examples) under `My Drive/trueframe-demo/`, then run the notebook on a T4 GPU. The manifest builder labels by folder and supports HEIC when `pillow-heif` is installed.
 
-   ```text
-   trueframe-data/
-   ├── genuine/data/*.parquet       # CelebA-HQ rows (image column)
-   ├── casia/CASIA2/Au/              # optional genuine CASIA images
-   └── sfhq_t2i/
-       ├── images/images/*.jpg
-       └── SFHQ_T2I_dataset.csv      # includes image_filename and model_used
-   ```
+This mode deliberately reuses the same examples for training and checkpoint selection so the demo can replay those exact images. Its validation/test manifests are duplicates; do **not** present those scores as generalization or unseen-image accuracy. The user images are ignored by Git. The project does not add them to repository files.
 
-   Obtain each dataset from its official or authorized source and follow its license. The repository does not contain the datasets or trained weights.
-6. Run the cells in order. The notebook builds manifests, trains on the T4, evaluates the held-out test manifest, and stores manifests, checkpoints, and reports in Drive so they survive a runtime reset.
+The full research workflow remains separate: obtain the authorized datasets, build generator-held-out manifests, train, and run `evaluate.py` on the held-out test set. Do not merge the demo folders into research metrics.
 
 The manifest builder requires at least three synthetic generator families. It reserves distinct families for validation and test and raises an error if that cannot be done. Do not replace this failure with a random split and then describe the result as generator generalization.
 
