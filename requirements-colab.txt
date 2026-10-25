@@ -1,6 +1,7 @@
 # Google Colab provides its own CUDA-enabled torch/torchvision build. Install
 # only the remaining runtime packages to preserve that matching build.
 fastapi>=0.110,<1
+huggingface_hub>=0.30,<2
 imagehash>=4.3,<5
 matplotlib>=3.8,<4
 numpy>=1.26,<3

@@ -15,19 +15,21 @@ TRUEFRAME is a research prototype that classifies face images as `genuine` or `a
 
 1. Open `colab_train.ipynb` in Colab and select **Runtime → Change runtime type → T4 GPU**.
 2. Keep the GitHub clone cell pointed at `https://github.com/chsrikar/trueframe.git`.
-3. Put the data folder in Google Drive with this structure:
+3. The notebook can download the data into Colab's temporary disk. It downloads the SFHQ-T2I archive from the public Hugging Face mirror (about 22.9 GB compressed), extracts a stratified 40,000-image sample, and downloads the three CelebA-HQ Parquet shards (about 1.4 GB) from a third-party Hugging Face mirror. Allow substantial free disk space and download time; Colab temporary data is lost when its runtime is deleted, so rerunning requires downloading again.
+4. The CelebA-HQ mirror's Hub card currently lists its license as unknown. Review the [dataset card](https://huggingface.co/datasets/saitsharipov/CelebA-HQ) and usage rights before academic use or redistribution. SFHQ-T2I is synthetic; see the [dataset project and citation](https://github.com/SelfishGene/SFHQ-T2I-dataset).
+5. To prepare data manually instead, use this layout:
 
    ```text
    trueframe-data/
    ├── genuine/data/*.parquet       # CelebA-HQ rows (image column)
    ├── casia/CASIA2/Au/              # optional genuine CASIA images
-   └── shfq-t2i/
+   └── sfhq_t2i/
        ├── images/images/*.jpg
        └── SFHQ_T2I_dataset.csv      # includes image_filename and model_used
    ```
 
    Obtain each dataset from its official or authorized source and follow its license. The repository does not contain the datasets or trained weights.
-4. Run the cells in order. The notebook builds manifests, trains on the T4, evaluates the held-out test manifest, and stores manifests, checkpoints, and reports in Drive so they survive a runtime reset.
+6. Run the cells in order. The notebook builds manifests, trains on the T4, evaluates the held-out test manifest, and stores manifests, checkpoints, and reports in Drive so they survive a runtime reset.
 
 The manifest builder requires at least three synthetic generator families. It reserves distinct families for validation and test and raises an error if that cannot be done. Do not replace this failure with a random split and then describe the result as generator generalization.
 
