@@ -1,13 +1,16 @@
 export interface AnalysisResult {
   filename: string
-  verdict: "Genuine (Real)" | "AI-Generated" | "Manipulated / Synthetic"
+  illustrative?: boolean
+  verdict: "Genuine (Real)" | "AI-Generated"
   confidence: number
+  confidence_calibrated?: false
   trust_score: number
-  agreement_score?: number
+  trust_score_type?: "experimental_heuristic"
+  agreement_score?: number | null
   agreement_details?: {
-    hotspot_iou: number
-    ssim_score: number
-    pearson_corr: number
+    hotspot_iou: number | null
+    ssim_score: number | null
+    pearson_corr: number | null
     pearson_norm?: number
   }
   class_probabilities: {
@@ -30,7 +33,7 @@ export interface AnalysisResult {
     software?: string | null
     camera_make?: string | null
     camera_model?: string | null
-    notes?: string
+    notes?: string | string[]
     [key: string]: any
   }
   artifact_findings: {
@@ -73,9 +76,11 @@ export async function analyzeImageWithAPI(file: File): Promise<AnalysisResult> {
   return await response.json()
 }
 
+// Fixed illustrative examples for the UI only; these values are not model evaluations.
 export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string }> = {
   genuine_portrait: {
     filename: "sample_raw_camera_portrait.jpg",
+    illustrative: true,
     previewUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=800&auto=format&fit=crop",
     verdict: "Genuine (Real)",
     confidence: 0.9842,
@@ -102,7 +107,7 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
       camera_make: "Canon",
       camera_model: "Canon EOS R5",
       software: "Adobe Lightroom 12.0",
-      notes: "Authentic EXIF tags verified. Unmodified sensor noise spectrum detected.",
+      notes: "Illustrative mock output only; this sample was not analyzed by the model.",
     },
     artifact_findings: {
       artifact_trust_signal: 0.94,
@@ -113,6 +118,7 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
   },
   ai_synthetic_art: {
     filename: "sample_midjourney_v6_cyberpunk.png",
+    illustrative: true,
     previewUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop",
     verdict: "AI-Generated",
     confidence: 0.9961,
@@ -139,7 +145,7 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
       camera_make: null,
       camera_model: null,
       software: null,
-      notes: "Missing EXIF header tags. Synthetic resolution grid pattern identified.",
+      notes: "Illustrative mock output only; this sample was not analyzed by the model.",
     },
     artifact_findings: {
       artifact_trust_signal: 0.10,
@@ -153,6 +159,7 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
   },
   manipulated_face: {
     filename: "sample_deepfake_face_swap.jpg",
+    illustrative: true,
     previewUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop",
     verdict: "AI-Generated",
     confidence: 0.9418,
@@ -176,7 +183,7 @@ export const MOCK_SAMPLES: Record<string, AnalysisResult & { previewUrl: string 
       metadata_trust_signal: 0.40,
       has_exif: true,
       software: "Photoshop 2024 / FaceFusion v2",
-      notes: "EXIF software header indicates post-processing editor. Boundary blend artifacts found.",
+      notes: "Illustrative mock output only; this sample was not analyzed by the model.",
     },
     artifact_findings: {
       artifact_trust_signal: 0.25,

@@ -44,5 +44,7 @@
   "confusion_matrix_labels": [
     "genuine",
     "ai_generated"
-  ]
+  ],
+  "run_status": "legacy_random_image_split_not_current_generator_holdout",
+  "limitation": "Historical result. Do not cite as source- or generator-generalization evidence."
 }

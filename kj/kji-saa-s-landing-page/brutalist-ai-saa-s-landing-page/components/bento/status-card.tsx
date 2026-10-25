@@ -1,32 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
-
 const REGIONS = [
-  { name: "CLASSIFIER", status: "ONLINE", latency: "12ms" },
-  { name: "EXIF_EXTRACT", status: "ONLINE", latency: "2ms" },
-  { name: "ELA_ANALYSIS", status: "ONLINE", latency: "15ms" },
-  { name: "TRUST_FUSION", status: "ONLINE", latency: "4ms" },
+  { name: "CLASSIFIER", status: "IMPLEMENTED", latency: "—" },
+  { name: "EXIF/XMP", status: "IMPLEMENTED", latency: "—" },
+  { name: "ELA/FFT", status: "EXPERIMENTAL", latency: "—" },
+  { name: "TEST REPORT", status: "PENDING", latency: "—" },
 ]
 
 export function StatusCard() {
-  const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1)
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b-2 border-foreground px-4 py-2">
         <span className="text-[10px] tracking-widest text-muted-foreground uppercase">
-          module.status
-        </span>
-        <span className="text-[10px] tracking-widest text-muted-foreground">
-          {`TICK:${String(tick).padStart(4, "0")}`}
+          implementation.scope
         </span>
       </div>
       <div className="flex-1 flex flex-col p-4 gap-0">
@@ -58,12 +44,12 @@ export function StatusCard() {
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground">
-              Trust Fusion Score
+              Evaluation status
             </span>
-            <span className="text-[9px] font-mono text-foreground">87%</span>
+            <span className="text-[9px] font-mono text-foreground">PENDING</span>
           </div>
           <div className="h-2 w-full border border-foreground">
-            <div className="h-full bg-foreground" style={{ width: "87%" }} />
+            <div className="h-full bg-foreground" style={{ width: "0%" }} />
           </div>
         </div>
       </div>

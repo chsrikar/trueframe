@@ -43,19 +43,10 @@ function ScramblePrice({ target, prefix = "$" }: { target: string; prefix?: stri
 
 /* ── data-stream status line ── */
 function StatusLine() {
-  const [throughput, setThroughput] = useState("0.0")
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setThroughput((Math.random() * 50 + 10).toFixed(1))
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <div className="flex items-center gap-2 text-[10px] tracking-widest text-muted-foreground uppercase font-mono">
       <span className="h-1.5 w-1.5 bg-[#ea580c]" />
-      <span>live throughput: {throughput}k req/s</span>
+      <span>benchmark: not recorded</span>
     </div>
   )
 }
@@ -81,54 +72,54 @@ interface Tier {
 const TIERS: Tier[] = [
   {
     id: "open-source",
-    name: "ACCURACY",
-    price: "99.96",
-    period: "%",
+    name: "MODEL SCOPE",
+    price: "2",
+    period: "classes",
     tag: null,
-    description: "Overall correct predictions across Genuine and AI-Generated image domains.",
+    description: "A research classifier for genuine and AI-generated face images.",
     features: [
-      { text: "CelebA-HQ (Genuine: 19,646)", included: true },
-      { text: "CASIA_AU (Genuine: 5,197)", included: true },
-      { text: "SFHQ-T2I (Modern AI: 40,000)", included: true },
-      { text: "Val Samples: 11,324", included: true },
-      { text: "WeightedRandomSampler", included: true },
-      { text: "Hold-out Cross-Validation", included: true },
+      { text: "CelebA-HQ and CASIA genuine photos", included: true },
+      { text: "SFHQ-T2I synthetic face images", included: true },
+      { text: "Generator-disjoint validation and test", included: true },
+      { text: "No manipulated/deepfake class", included: true },
+      { text: "No identity-disjoint guarantee", included: true },
+      { text: "No universal detector claim", included: true },
     ],
-    cta: "VIEW MATRIX",
+    cta: "READ LIMITATIONS",
     highlighted: false,
   },
   {
     id: "pro",
-    name: "F1-SCORE",
-    price: "99.96",
-    period: "%",
-    tag: "MACRO-AVG",
-    description: "Harmonic mean of precision and recall across Genuine and AI-Generated classes.",
+    name: "HELD-OUT EVALUATION",
+    price: "PENDING",
+    period: "",
+    tag: "COLAB T4 RUN",
+    description: "No result is published until the new generator-held-out checkpoint has been evaluated.",
     features: [
-      { text: "Macro F1 = 0.9996", included: true },
-      { text: "Genuine F1 = 99.96%", included: true },
-      { text: "AI-Generated F1 = 99.97%", included: true },
-      { text: "Weighted Sampling", included: true },
-      { text: "CrossEntropy Loss", included: true },
-      { text: "AdamW + Cosine Annealing", included: true },
+      { text: "Per-source and per-generator metrics", included: true },
+      { text: "Confusion matrix and ROC-AUC", included: true },
+      { text: "Brier score and calibration error", included: true },
+      { text: "Test set reserved for final reporting", included: true },
+      { text: "Raw softmax is not calibrated", included: true },
+      { text: "Old scores are historical and excluded", included: true },
     ],
-    cta: "VIEW ROC-AUC",
+    cta: "RUN EVALUATION",
     highlighted: true,
   },
   {
     id: "enterprise",
-    name: "TRUST FUSION",
-    price: "ACTIVE",
+    name: "EXPERIMENTAL SIGNALS",
+    price: "DEMO",
     period: "",
     tag: null,
-    description: "Combining classifier confidence + metadata signal + forensic artifact signal.",
+    description: "Optional explainability, metadata, and artifact outputs are exploratory heuristics.",
     features: [
       { text: "EfficientNet-B0 backbone", included: true },
       { text: "Grad-CAM explainability", included: true },
       { text: "EXIF & metadata extraction", included: true },
-      { text: "ELA+ Frequency domain GAN fingerprints", included: true },
-      { text: "Fusion Score (0-100)", included: true },
-      { text: "PDF report generation", included: true },
+      { text: "ELA and frequency summaries", included: true },
+      { text: "Heuristic score, not probability", included: true },
+      { text: "No verified forensic conclusion", included: true },
     ],
     cta: "GENERATE REPORT",
     highlighted: false,
@@ -137,7 +128,7 @@ const TIERS: Tier[] = [
 
 /* ── single pricing card ── */
 function PricingCard({ tier, index }: { tier: Tier; index: number }) {
-  const isCustom = tier.price === "ACTIVE"
+  const isCustom = tier.price === "DEMO"
 
   return (
     <motion.div
@@ -176,7 +167,7 @@ function PricingCard({ tier, index }: { tier: Tier; index: number }) {
       <div className="px-5 pt-6 pb-4">
         <div className="flex items-baseline gap-1">
           {isCustom ? (
-            <span className="text-3xl lg:text-4xl font-mono font-bold tracking-tight">ACTIVE</span>
+            <span className="text-3xl lg:text-4xl font-mono font-bold tracking-tight">DEMO</span>
           ) : (
             <span className="text-3xl lg:text-4xl">
               <ScramblePrice target={tier.price} prefix="" />

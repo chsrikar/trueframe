@@ -32,13 +32,13 @@ def verify_test_samples(num_samples=5):
         fallback_path = PROJECT_ROOT / "checkpoints" / "latest_checkpoint.pth"
         if fallback_path.exists():
             print(f"Found latest checkpoint `{fallback_path}`.")
-            ckpt = torch.load(fallback_path, map_location='cpu')
+            ckpt = torch.load(fallback_path, map_location='cpu', weights_only=False)
             model_weights = ckpt['model_state_dict']
         else:
             print("❌ No model checkpoint found for verification. Please run train.py first.")
             return
     else:
-        model_weights = torch.load(MODEL_PATH, map_location='cpu')
+        model_weights = torch.load(MODEL_PATH, map_location='cpu', weights_only=True)
         
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -48,8 +48,15 @@ def verify_test_samples(num_samples=5):
     model.to(device)
     model.eval()
     
-    # Stratified or random sample
-    sampled_df = test_df.sample(n=min(num_samples, len(test_df)), random_state=42).reset_index(drop=True)
+    # Take a balanced sample so both labels are represented when available.
+    per_class = max(1, num_samples // 2)
+    sample_parts = [
+        group.sample(n=min(per_class, len(group)), random_state=42)
+        for _, group in test_df.groupby('label')
+    ]
+    sampled_df = pd.concat(sample_parts).sample(
+        n=min(num_samples, sum(len(part) for part in sample_parts)), random_state=42
+    ).reset_index(drop=True)
     test_dataset = TrueframeDataset(sampled_df, is_train=False)
     
     print(f"\nEvaluating {len(sampled_df)} test samples...\n")
@@ -70,7 +77,7 @@ def verify_test_samples(num_samples=5):
             true_label = IDX_TO_LABEL[true_idx]
             
             conf = probs[pred_idx] * 100
-            prob_str = f"[{probs[0]*100:.1f}%, {probs[1]*100:.1f}%, {probs[2]*100:.1f}%]"
+            prob_str = f"[{probs[0]*100:.1f}%, {probs[1]*100:.1f}%]"
             
             is_correct = "✅" if pred_idx == true_idx else "❌"
             if pred_idx == true_idx:

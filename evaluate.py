@@ -13,6 +13,9 @@ import io
 import sys
 import json
 import random
+import os
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -29,9 +32,11 @@ from torch.utils.data import DataLoader
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_ROOT   = Path(__file__).resolve().parent
-TEST_MANIFEST  = PROJECT_ROOT / "manifest_test.csv"
-CHECKPOINT     = PROJECT_ROOT / "checkpoints" / "best_model.pth"
-OUTPUT_DIR     = PROJECT_ROOT / "outputs"
+MANIFEST_DIR   = Path(os.environ.get("TRUEFRAME_MANIFEST_DIR", PROJECT_ROOT)).expanduser().resolve()
+TEST_MANIFEST  = MANIFEST_DIR / "manifest_test.csv"
+CHECKPOINT_DIR = Path(os.environ.get("TRUEFRAME_CHECKPOINT_DIR", PROJECT_ROOT / "checkpoints")).expanduser().resolve()
+CHECKPOINT     = CHECKPOINT_DIR / "best_model.pth"
+OUTPUT_DIR     = Path(os.environ.get("TRUEFRAME_OUTPUT_DIR", PROJECT_ROOT / "outputs")).expanduser().resolve()
 LABEL_NAMES    = ["genuine", "ai_generated"]
 
 
@@ -57,6 +62,20 @@ def evaluate_test_set(batch_size: int = 32, num_workers: int = 0) -> dict:
     model.eval()
 
     test_df = pd.read_csv(TEST_MANIFEST)
+    train_manifest = MANIFEST_DIR / "manifest_train.csv"
+    val_manifest = MANIFEST_DIR / "manifest_val.csv"
+    if not train_manifest.exists() or not val_manifest.exists():
+        raise FileNotFoundError("Train/validation manifests are needed to verify the held-out generator split.")
+    train_df = pd.read_csv(train_manifest)
+    val_df = pd.read_csv(val_manifest)
+    required = {"label", "generator", "source"}
+    if not required.issubset(test_df.columns) or not required.issubset(train_df.columns) or not required.issubset(val_df.columns):
+        raise ValueError("Manifests lack generator metadata. Regenerate all manifests with build_manifest.py.")
+    train_generators = set(train_df.loc[train_df.label == "ai_generated", "generator"].astype(str))
+    val_generators = set(val_df.loc[val_df.label == "ai_generated", "generator"].astype(str))
+    test_generators = set(test_df.loc[test_df.label == "ai_generated", "generator"].astype(str))
+    if train_generators & test_generators or train_generators & val_generators or val_generators & test_generators:
+        raise ValueError("Synthetic generator groups overlap across splits. Rebuild manifests before evaluation.")
     print(f"Test manifest: {len(test_df):,} samples")
     print(f"Class distribution:\n{test_df['label'].value_counts().to_string()}\n")
 
@@ -98,7 +117,7 @@ def evaluate_test_set(batch_size: int = 32, num_workers: int = 0) -> dict:
 # --------------------------------------------------------------------------
 # Metrics computation
 # --------------------------------------------------------------------------
-def compute_metrics(preds, targets, probs):
+def compute_metrics(preds, targets, probs, test_df=None):
     from sklearn.metrics import (
         accuracy_score, classification_report,
         confusion_matrix, roc_auc_score,
@@ -126,12 +145,61 @@ def compute_metrics(preds, targets, probs):
 
     cm = confusion_matrix(targets, preds, labels=[0, 1]).tolist()
 
-    return {
+    confidence = probs.max(axis=1)
+    correct = (preds == targets).astype(float)
+    ece = 0.0
+    for lower in np.linspace(0, 1, 11)[:-1]:
+        upper = lower + 0.1
+        mask = (confidence >= lower) & (confidence < upper if upper < 1 else confidence <= upper)
+        if mask.any():
+            ece += float(mask.mean()) * abs(float(correct[mask].mean()) - float(confidence[mask].mean()))
+
+    result = {
         "accuracy": round(acc, 4),
         "classification_report": report,
         "roc_auc_ovr": roc_auc,
+        "brier_score": round(float(np.mean(np.sum((probs - np.eye(probs.shape[1])[targets]) ** 2, axis=1))), 4),
+        "expected_calibration_error_10_bins": round(ece, 4),
+        "confidence_is_calibrated": False,
         "confusion_matrix": cm,
         "confusion_matrix_labels": LABEL_NAMES,
+    }
+    if test_df is not None:
+        for group_col in ("source", "generator"):
+            if group_col not in test_df.columns:
+                continue
+            result[f"metrics_by_{group_col}"] = {}
+            values = test_df[group_col].fillna("unknown").astype(str).to_numpy()
+            for group in sorted(set(values)):
+                mask = values == group
+                group_report = classification_report(
+                    targets[mask], preds[mask], labels=[0, 1], target_names=LABEL_NAMES,
+                    output_dict=True, zero_division=0,
+                )
+                result[f"metrics_by_{group_col}"][group] = {
+                    "count": int(mask.sum()),
+                    "accuracy": round(float(accuracy_score(targets[mask], preds[mask])), 4),
+                    "macro_f1": round(float(group_report["macro avg"]["f1-score"]), 4),
+                    "classification_report": group_report,
+                }
+    return result
+
+
+def source_only_baseline(train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict:
+    """Measure how much label can be predicted from dataset source alone."""
+    source_labels = train_df.groupby("source")["label"].agg(lambda labels: labels.value_counts().index[0]).to_dict()
+    global_label = train_df["label"].value_counts().index[0]
+    predictions = np.array([
+        LABEL_TO_IDX.get(source_labels.get(str(source), global_label), LABEL_TO_IDX[global_label])
+        for source in test_df["source"].fillna("unknown")
+    ])
+    targets = np.array([LABEL_TO_IDX[label] for label in test_df["label"]])
+    from sklearn.metrics import accuracy_score, f1_score
+    return {
+        "accuracy": round(float(accuracy_score(targets, predictions)), 4),
+        "macro_f1": round(float(f1_score(targets, predictions, average="macro", zero_division=0)), 4),
+        "source_to_training_majority_label": source_labels,
+        "warning": "High performance means class and dataset source are confounded; it is not model performance.",
     }
 
 
@@ -189,6 +257,11 @@ def write_error_analysis(preds, targets, probs, test_df, out_path: Path, n: int 
     ]
 
     confusion_patterns = {}
+    for idx in errors:
+        true_lbl = IDX_TO_LABEL[int(targets[idx])]
+        pred_lbl = IDX_TO_LABEL[int(preds[idx])]
+        key = f"{true_lbl} → {pred_lbl}"
+        confusion_patterns[key] = confusion_patterns.get(key, 0) + 1
     for rank, idx in enumerate(worst):
         true_lbl = IDX_TO_LABEL[int(targets[idx])]
         pred_lbl = IDX_TO_LABEL[int(preds[idx])]
@@ -201,22 +274,15 @@ def write_error_analysis(preds, targets, probs, test_df, out_path: Path, n: int 
             f"| {rank+1} | {true_lbl} | {pred_lbl} | {conf:.1f}% | {source} | ...{fname} |\n"
         )
 
-        # Tally confusion pairs
-        key = f"{true_lbl} → {pred_lbl}"
-        confusion_patterns[key] = confusion_patterns.get(key, 0) + 1
 
     # Pattern summary
-    lines.append("\n## Class Confusion Patterns\n\n")
+    lines.append("\n## All Error Confusion Patterns\n\n")
     for pattern, count in sorted(confusion_patterns.items(), key=lambda x: -x[1]):
         lines.append(f"- **{pattern}**: {count} cases\n")
 
-    lines.append("\n## Observations\n\n")
-    lines.append(
-        "- Overall model accuracy on unseen test set is 99.96% (only 4 misclassifications out of 11,324 samples).\n"
-        "- `genuine ↔ ai_generated` confusions are extremely rare and occur only on subtle edge-case photorealistic faces.\n"
-        "- High-confidence misclassifications suggest domain gaps or subtle lighting/style variations in synthetic face generators.\n"
-        "- Consider cross-referencing these cases with metadata/artifact signals to check whether the forensic modules disagree with the classifier.\n"
-    )
+    lines.append("\n## Notes\n\n")
+    lines.append("- This report lists observed errors only; it does not infer causes from filenames or confidence.\n")
+    lines.append("- Confidence is raw softmax output and has not been calibrated.\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
     print(f"[OK] Error analysis saved to {out_path}")
@@ -233,7 +299,17 @@ if __name__ == "__main__":
     print("=" * 70 + "\n")
 
     preds, targets, probs, test_df = evaluate_test_set(batch_size=32, num_workers=0)
-    metrics = compute_metrics(preds, targets, probs)
+    test_df = test_df.reset_index(drop=True)
+    metrics = compute_metrics(preds, targets, probs, test_df)
+    train_df = pd.read_csv(MANIFEST_DIR / "manifest_train.csv")
+    metrics["source_only_majority_baseline"] = source_only_baseline(train_df, test_df)
+    metrics["evaluation_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
+    metrics["test_manifest_sha256"] = hashlib.sha256(TEST_MANIFEST.read_bytes()).hexdigest()
+    metrics["train_manifest_sha256"] = hashlib.sha256((MANIFEST_DIR / "manifest_train.csv").read_bytes()).hexdigest()
+    metrics["validation_manifest_sha256"] = hashlib.sha256((MANIFEST_DIR / "manifest_val.csv").read_bytes()).hexdigest()
+    metrics["checkpoint_sha256"] = hashlib.sha256(CHECKPOINT.read_bytes()).hexdigest()
+    metrics["test_sample_count"] = int(len(test_df))
+    metrics["evaluation_protocol"] = "See split_protocol.json; results are limited to listed datasets and generators."
 
     # Save metrics JSON
     metrics_path = OUTPUT_DIR / "metrics.json"

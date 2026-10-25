@@ -8,33 +8,33 @@ const ease = [0.22, 1, 0.36, 1] as const
 const strengths = [
   {
     icon: Expand,
-    title: "Generalization",
-    description: "Built to detect tomorrow's deepfakes, not just today's. Our feature set is generator-agnostic."
+    title: "Generator Holdout",
+    description: "Synthetic generator families are separated across training, validation, and test. This is a limited stress test, not proof of universal generalization."
   },
   {
     icon: Activity,
-    title: "Calibrated Confidence",
-    description: "We don't just output a verdict. The Trust Fusion Score includes uncertainty calibration to prevent misleading heatmaps."
+    title: "Uncalibrated Scores",
+    description: "Classifier confidence is raw softmax output. The optional fusion score is heuristic and should not be interpreted as probability or verified authenticity."
   },
   {
     icon: ShieldAlert,
-    title: "Adversarial Robustness",
-    description: "Hardened against evasion. The pipeline checks for adversarial perturbations and re-compression attacks."
+    title: "Research Scope",
+    description: "The trained labels cover genuine and AI-generated face images. Manipulated and face-swap examples are outside the current training scope."
   },
   {
     icon: Fingerprint,
-    title: "C2PA Provenance",
-    description: "Integrates with emerging content credentials standards as a complementary signal for holistic verification."
+    title: "Metadata Signals",
+    description: "The demo reads available EXIF and XMP fields. Metadata can be removed or changed and is not proof of provenance."
   },
   {
     icon: Users,
-    title: "Human-in-the-Loop",
-    description: "Designed for investigators. Expert reviewers can correct verdicts, feeding back into continuous model fine-tuning."
+    title: "Explainability",
+    description: "Grad-CAM maps show image regions that influence a prediction. They are visual explanations, not localized proof of manipulation."
   },
   {
     icon: BrainCircuit,
-    title: "Comprehensive Coverage",
-    description: "Detects both AI-generated diffusion fakes and traditional copy-move/splicing forgeries using ELA."
+    title: "Known Data Gap",
+    description: "The AI class currently comes from one dataset family. Independent datasets for both labels are needed to measure cross-dataset performance."
   }
 ]
 

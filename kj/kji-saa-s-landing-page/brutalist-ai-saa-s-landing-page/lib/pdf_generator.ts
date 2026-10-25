@@ -23,7 +23,7 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
   doc.setTextColor(255, 255, 255)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(16)
-  doc.text("TRUEFRAME // DUAL-DOMAIN FORENSIC AUDIT", margin + 6, 25)
+  doc.text("TRUEFRAME // RESEARCH DEMO REPORT", margin + 6, 25)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
@@ -46,7 +46,7 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
   doc.setFont("helvetica", "bold")
   doc.setFontSize(9)
   doc.setTextColor(100, 100, 100)
-  doc.text("PRIMARY CLASSIFICATION & TRUST VERDICT", margin + 6, y + 8)
+  doc.text("MODEL CLASSIFICATION OUTPUT (NOT A FORENSIC VERDICT)", margin + 6, y + 8)
 
   doc.setFontSize(16)
   doc.setTextColor(isGenuine ? 16 : 220, isGenuine ? 185 : 38, isGenuine ? 129 : 38)
@@ -54,10 +54,10 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
 
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
-  doc.text(`TRUST SCORE: ${result.trust_score}/100`, margin + 6, y + 26)
-  doc.text(`PRIMARY CONFIDENCE: ${(result.confidence * 100).toFixed(1)}%`, margin + 60, y + 26)
-  const aggrScore = result.agreement_score !== undefined ? (result.agreement_score * 100).toFixed(1) : "95.0"
-  doc.text(`SPATIAL AGREEMENT: ${aggrScore}%`, margin + 125, y + 26)
+  doc.text(`HEURISTIC INDEX: ${result.trust_score}/100`, margin + 6, y + 26)
+  doc.text(`RAW SOFTMAX: ${(result.confidence * 100).toFixed(1)}%`, margin + 65, y + 26)
+  const aggrScore = result.agreement_score != null ? `${(result.agreement_score * 100).toFixed(1)}%` : "N/A"
+  doc.text(`CAM AGREEMENT: ${aggrScore}`, margin + 125, y + 26)
 
   y += 38
 
@@ -76,10 +76,10 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
   doc.text(`Filename: ${result.filename}`, margin + 6, y + 16)
-  doc.text(`EXIF Header Present: ${result.metadata_findings.has_exif ? "YES (Valid)" : "NO (Missing/Stripped)"}`, margin + 6, y + 22)
+  doc.text(`EXIF Header Present: ${result.metadata_findings.has_exif ? "YES" : "NOT FOUND"}`, margin + 6, y + 22)
   doc.text(`Software Signature: ${result.metadata_findings.software || "None Detected"}`, margin + 6, y + 28)
 
-  doc.text(`Metadata Trust Signal: ${((result.metadata_findings.metadata_trust_signal || 0) * 100).toFixed(0)}%`, margin + 105, y + 16)
+  doc.text(`Metadata Heuristic: ${((result.metadata_findings.metadata_trust_signal || 0) * 100).toFixed(0)}%`, margin + 105, y + 16)
   doc.text(`Camera Model: ${result.metadata_findings.camera_model || "N/A"}`, margin + 105, y + 22)
 
   y += 38
@@ -91,7 +91,7 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
   doc.setFont("helvetica", "bold")
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  doc.text("DUAL-DOMAIN GRAD-CAM ATTENTION MAP (FUSED CONSENSUS)", margin + 6, y + 8)
+  doc.text("GRAD-CAM VISUALIZATION (EXPLANATORY, NOT PROOF)", margin + 6, y + 8)
 
   const activeHeatmap = result.heatmap_fused_b64 || result.heatmap_b64
   if (activeHeatmap) {
@@ -113,16 +113,16 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8)
   doc.setTextColor(80, 80, 80)
-  const iou = result.agreement_details?.hotspot_iou !== undefined ? (result.agreement_details.hotspot_iou * 100).toFixed(1) : "88.0"
-  const ssim = result.agreement_details?.ssim_score !== undefined ? (result.agreement_details.ssim_score * 100).toFixed(1) : "92.0"
-  const pearson = result.agreement_details?.pearson_corr !== undefined ? result.agreement_details.pearson_corr.toFixed(2) : "0.85"
+  const iou = result.agreement_details?.hotspot_iou != null ? (result.agreement_details.hotspot_iou * 100).toFixed(1) : "N/A"
+  const ssim = result.agreement_details?.ssim_score != null ? (result.agreement_details.ssim_score * 100).toFixed(1) : "N/A"
+  const pearson = result.agreement_details?.pearson_corr != null ? result.agreement_details.pearson_corr.toFixed(2) : "N/A"
 
   const heatmapNotes = [
-    "Dual-Domain consensus multiplies positive & negative",
-    "attention maps to isolate invariant generative artifacts.",
+    "Heatmaps visualize model activations only; they do not",
+    "localize or confirm an image manipulation.",
     "",
     `Positive Class Prob (AI): ${((result.class_probabilities?.ai_generated || 0) * 100).toFixed(1)}%`,
-    `Inverted Class Prob (AI): ${((result.inverted_prediction?.confidence || 0) * 100).toFixed(1)}%`,
+    `Inverted Pass AI Score: ${((result.inverted_prediction?.class_probabilities?.ai_generated || 0) * 100).toFixed(1)}%`,
     "",
     "SPATIAL AGREEMENT BREAKDOWN:",
     `• Top-20% Hotspot IoU: ${iou}%`,
@@ -135,33 +135,47 @@ export function generatePDFReport(result: AnalysisResult, imagePreviewUrl?: stri
 
   y += 81
 
-  // Section 4: Artifact Forensics (ELA + FFT) & Inversion Forensics
+  // Section 4: Experimental ELA/FFT summaries and inversion diagnostic
   doc.setFillColor(255, 255, 255)
   doc.rect(margin, y, contentWidth, 38, "FD")
 
   doc.setFont("helvetica", "bold")
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  doc.text("ARTIFACT FORENSICS (ELA, 2D FFT & INVERSION DYNAMICS)", margin + 6, y + 8)
+  doc.text("EXPERIMENTAL ELA/FFT SUMMARIES & INVERSION DIAGNOSTIC", margin + 6, y + 8)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
   doc.setTextColor(60, 60, 60)
-  doc.text(`Error Level Analysis (ELA Score): ${((result.artifact_findings.ela_mean_score || 0) * 100).toFixed(1)}%`, margin + 6, y + 17)
-  doc.text(`FFT Frequency Grid Score: ${((result.artifact_findings.fft_grid_score || 0) * 100).toFixed(1)}%`, margin + 6, y + 24)
-  doc.text(`Artifact Trust Signal: ${((result.artifact_findings.artifact_trust_signal || 0) * 100).toFixed(0)}%`, margin + 105, y + 17)
-  doc.text(`Inversion Domain Match: ${result.inverted_prediction?.verdict === result.verdict ? "CONSISTENT" : "DIVERGENT"}`, margin + 105, y + 24)
+  doc.text(`ELA mean (raw): ${Number(result.artifact_findings.ela_mean_score || 0).toFixed(3)}`, margin + 6, y + 17)
+  doc.text(`FFT grid (raw): ${Number(result.artifact_findings.fft_grid_score || 0).toFixed(3)}`, margin + 6, y + 24)
+  doc.text(`Artifact heuristic: ${((result.artifact_findings.artifact_trust_signal || 0) * 100).toFixed(0)}%`, margin + 105, y + 17)
+  doc.text(`Inverted-pass class: ${result.inverted_prediction?.verdict || "N/A"}`, margin + 105, y + 24)
 
   const artFlags = result.artifact_findings.flags?.join("; ") || "No strong artifact signals detected."
   doc.setFontSize(8)
   doc.text(`Flags: ${artFlags.substring(0, 85)}`, margin + 6, y + 31)
 
-  // Footer Disclaimer
+  // Scope disclaimer
+  doc.setFontSize(8)
+  doc.setTextColor(result.illustrative ? 185 : 60, result.illustrative ? 28 : 60, result.illustrative ? 28 : 60)
+  doc.text(
+    result.illustrative
+      ? "ILLUSTRATIVE STATIC SAMPLE — NO IMAGE ANALYSIS WAS RUN."
+      : "RESEARCH PROTOTYPE OUTPUT — NOT AN AUTHENTICITY VERDICT.",
+    margin,
+    253,
+  )
+  doc.setTextColor(60, 60, 60)
+  doc.text("Covers genuine vs AI-generated faces only; not a deepfake/manipulation detector or proof of authenticity.", margin, 258)
+  doc.text("Softmax is uncalibrated; metadata, ELA/FFT, inversion, and fusion outputs are experimental heuristics.", margin, 258)
+
+  // Footer
   doc.setFontSize(7)
   doc.setTextColor(120, 120, 120)
-  doc.text("TRUEFRAME Dual-Domain Forensics Engine // Generated for Official Verification // https://github.com/chsrikar/trueframe", margin, 288)
+  doc.text("TRUEFRAME // Research demo report // github.com/chsrikar/trueframe", margin, 288)
 
   // Trigger Save
   const cleanFilename = result.filename.replace(/[^a-z0-9]/gi, "_").toLowerCase()
-  doc.save(`TRUEFRAME_DualDomain_Report_${cleanFilename}.pdf`)
+  doc.save(`TRUEFRAME_Research_Report_${cleanFilename}.pdf`)
 }

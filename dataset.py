@@ -24,7 +24,7 @@ IDX_TO_LABEL = {v: k for k, v in LABEL_TO_IDX.items()}
 # Each parquet shard has ~5 row groups of ~426 rows × ~96 MB.
 # We cache at most MAX_CACHED_GROUPS groups to cap RAM usage.
 # -----------------------------------------------------------------
-MAX_CACHED_GROUPS = 32   # Cache all ~30 FFHQ row groups (~2.7 GB RAM) — eliminates per-epoch disk re-reads
+MAX_CACHED_GROUPS = max(1, int(os.environ.get("TRUEFRAME_PARQUET_CACHE_GROUPS", "8")))
 _PARQUET_METADATA: dict = {}          # path -> pyarrow ParquetFile metadata
 _ROW_GROUP_CACHE: "collections.OrderedDict" = collections.OrderedDict()
 
@@ -164,9 +164,12 @@ class TrueframeDataset(Dataset):
             tensor_img = self.transform(img)
             return tensor_img, label_idx
         except Exception as e:
-            fallback_idx = random.randint(0, len(self.df) - 1)
-            print(f"⚠️ Warning: Failed to load index {idx} ({filepath_str}): {e}. Using fallback index {fallback_idx}.")
-            return self.__getitem__(fallback_idx, retries=retries + 1)
+            # Never silently substitute another image: that changes the evaluated
+            # sample while callers still associate the result with this manifest row.
+            raise RuntimeError(
+                f"Failed to load manifest row {idx} ({filepath_str!r}); "
+                "check the dataset path and image integrity."
+            ) from e
 
 
 def get_weighted_sampler(manifest_df_or_path):

@@ -22,9 +22,9 @@ const NODES: PipelineNode[] = [
     width: 220,
     height: 90,
     subpoints: [
-      "File accepted by endpoint",
-      "Unique transaction ID generated",
-      "Upload timestamp logged"
+      "Image upload to local API",
+      "Request handled by analysis service",
+      "No authenticity claim is made"
     ]
   },
   {
@@ -35,9 +35,9 @@ const NODES: PipelineNode[] = [
     width: 220,
     height: 90,
     subpoints: [
-      "Format check (jpg/png/webp)",
-      "Size limit check (max 15MB)",
-      "Corruption/integrity check"
+      "Pillow image decode check",
+      "15 MB upload and pixel-count limit",
+      "Unsupported or unreadable files rejected"
     ]
   },
   {
@@ -48,9 +48,9 @@ const NODES: PipelineNode[] = [
     width: 220,
     height: 90,
     subpoints: [
-      "Resize/normalize image tensor",
-      "Strip unnecessary headers",
-      "Prepare zero-copy GPU buffer"
+      "Resize and normalize RGB input",
+      "Create an inverted image pass",
+      "Prepare model tensors"
     ]
   },
   {
@@ -61,9 +61,9 @@ const NODES: PipelineNode[] = [
     width: 230,
     height: 90,
     subpoints: [
-      "Parse EXIF/IPTC/XMP headers",
-      "Extract camera model & GPS",
-      "Generate SHA-256 file hash"
+      "Read available EXIF/XMP fields",
+      "Inspect camera/software metadata",
+      "Missing metadata is inconclusive"
     ]
   },
   {
@@ -74,9 +74,9 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "Flag missing/stripped EXIF",
-      "Detect editing software tags",
-      "Check timestamp anomalies"
+      "Produce a heuristic metadata signal",
+      "Look for known software strings",
+      "Metadata can be edited or removed"
     ]
   },
   {
@@ -87,9 +87,9 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "EfficientNet-B0 GPU model inference",
-      "Predict Real vs AI-Generated",
-      "Output class confidence score"
+      "EfficientNet-B0 binary classifier",
+      "Classes: genuine / AI-generated faces",
+      "Raw softmax is not calibrated"
     ]
   },
   {
@@ -100,9 +100,9 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "Noise pattern & ELA analysis",
-      "FFT frequency grid detection",
-      "Privacy & EXIF stripping check"
+      "Exploratory ELA summary",
+      "Exploratory FFT summary",
+      "Signals are not validated verdicts"
     ]
   },
   {
@@ -113,9 +113,9 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "Generate Grad-CAM heatmap",
-      "Highlight decision regions",
-      "Create visual overlay map"
+      "Generate Grad-CAM visualization",
+      "Show regions influencing the classifier",
+      "Heatmap is not proof of manipulation"
     ]
   },
   {
@@ -126,9 +126,9 @@ const NODES: PipelineNode[] = [
     width: 240,
     height: 90,
     subpoints: [
-      "Combine metadata + model + Dual-CAM",
-      "Weighted multi-modal fusion",
-      "Output 0–100 fused trust score"
+      "Combine fixed heuristic signals",
+      "Score has no calibration study",
+      "Output is not a probability"
     ]
   },
   {
@@ -139,9 +139,9 @@ const NODES: PipelineNode[] = [
     width: 250,
     height: 90,
     subpoints: [
-      "Compile verdict & confidence",
-      "Render interactive dashboard UI",
-      "Generate downloadable PDF"
+      "Return classifier output and diagnostics",
+      "Render the interactive dashboard",
+      "Offer a downloadable demo report"
     ]
   }
 ]
@@ -281,17 +281,17 @@ export function WorkflowDiagram() {
             <div className="w-full h-full border-2 border-foreground bg-muted p-4 flex flex-col justify-center shadow-lg">
               <h3 className="font-pixel text-lg text-foreground mb-1 uppercase tracking-wide">OUTPUT</h3>
               <h2 className="font-mono text-2xl text-[#ea580c] font-bold mb-1 uppercase tracking-tighter">HEAT MAP & REPORT</h2>
-              <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest border-t border-border pt-2">TRUEFRAME FORENSIC EXPLAINABILITY</p>
+              <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest border-t border-border pt-2">RESEARCH DEMO OUTPUT</p>
             </div>
           </foreignObject>
         </motion.g>
 
         {/* Metric Badges */}
         {[
-          { label: "Accuracy", value: "99.9%", x: 630, y: 570 },
-          { label: "Precision", value: "99.9%", x: 790, y: 570 },
-          { label: "F1-Score", value: "99.9%", x: 630, y: 635 },
-          { label: "ROC-AUC", value: "0.999", x: 790, y: 635 },
+          { label: "Test accuracy", value: "PENDING", x: 630, y: 570 },
+          { label: "Macro F1", value: "PENDING", x: 790, y: 570 },
+          { label: "Test ROC-AUC", value: "PENDING", x: 630, y: 635 },
+          { label: "Calibration", value: "N/A", x: 790, y: 635 },
         ].map((metric, i) => (
           <motion.g
             key={metric.label}

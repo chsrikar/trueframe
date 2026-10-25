@@ -6,13 +6,16 @@ import io
 import base64
 import os
 import tempfile
+import logging
 from pathlib import Path
+from typing import Optional
 import torch_compat  # noqa: F401
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import torch
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
+from starlette.concurrency import run_in_threadpool
 
 from inference import analyze_image, _get_model_and_device
 
@@ -21,12 +24,15 @@ app = FastAPI(
     description="Dual-Domain AI image authenticity analysis & Grad-CAM spatial agreement engine",
     version="2.0.0"
 )
+logger = logging.getLogger(__name__)
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+MAX_IMAGE_PIXELS = 25_000_000
 
 # Enable CORS for Next.js app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[origin.strip() for origin in os.getenv("TRUEFRAME_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if origin.strip()],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -74,12 +80,21 @@ async def analyze_file(file: UploadFile = File(...)):
         if not extension:
             extension = ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp:
-            contents = await file.read()
+            contents = await file.read(MAX_UPLOAD_BYTES + 1)
+            if len(contents) > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="Image exceeds the 15 MB upload limit.")
+            try:
+                with Image.open(io.BytesIO(contents)) as uploaded_image:
+                    if uploaded_image.width * uploaded_image.height > MAX_IMAGE_PIXELS:
+                        raise HTTPException(status_code=413, detail="Image dimensions exceed the supported limit.")
+                    uploaded_image.verify()
+            except (UnidentifiedImageError, OSError) as exc:
+                raise HTTPException(status_code=400, detail="Uploaded file is not a readable image.") from exc
             tmp.write(contents)
             temp_path = tmp.name
 
         # Run full TRUEFRAME Dual-Domain analysis pipeline
-        result = analyze_image(temp_path)
+        result = await run_in_threadpool(analyze_image, temp_path)
 
         # Convert heatmaps to base64 strings
         heatmap_fused_b64 = _pil_to_b64(result.get("heatmap_fused"))
@@ -91,7 +106,9 @@ async def analyze_file(file: UploadFile = File(...)):
             "filename": file.filename,
             "verdict": result["verdict"],
             "confidence": result["confidence"],
+            "confidence_calibrated": result["confidence_calibrated"],
             "trust_score": result["trust_score"],
+            "trust_score_type": result["trust_score_type"],
             "agreement_score": result["agreement_score"],
             "agreement_details": result["agreement_details"],
             "class_probabilities": result["class_probabilities"],
@@ -106,8 +123,11 @@ async def analyze_file(file: UploadFile = File(...)):
         }
         return JSONResponse(content=response_data)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.exception("Image analysis failed")
+        raise HTTPException(status_code=500, detail="Image analysis failed. Check the server log for details.") from e
     finally:
         if temp_path and os.path.exists(temp_path):
             try:

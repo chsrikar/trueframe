@@ -9,8 +9,8 @@ from sklearn.model_selection import train_test_split
 sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-BASE_DATA_DIR = PROJECT_ROOT / "data"
-OUTPUT_DIR = PROJECT_ROOT
+BASE_DATA_DIR = Path(os.environ.get("TRUEFRAME_DATA_DIR", PROJECT_ROOT / "data")).expanduser().resolve()
+OUTPUT_DIR = Path(os.environ.get("TRUEFRAME_MANIFEST_DIR", PROJECT_ROOT)).expanduser().resolve()
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff'}
 
@@ -25,6 +25,23 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff'}
 # Raise to 50,000 if you want a higher ratio, lower to 25,000 for 1.0×.
 # ---------------------------------------------------------------------------
 SFHQ_T2I_CAP = 40_000
+
+
+def _generator_from_name(name: str) -> str:
+    """Return a stable generator family name from an SFHQ filename/model value."""
+    import re
+    value = Path(str(name)).stem.upper().replace("_IMAGE", "").replace("-IMAGE", "")
+    value = re.sub(r"[_\-]?\d+$", "", value)
+    value = re.sub(r"[^A-Z0-9]+", "_", value).strip("_")
+    aliases = {
+        "DALLE": "dalle3", "DALLE3": "dalle3", "DALL_E_3": "dalle3",
+        "FLUX": "flux", "FLUX1": "flux", "FLUX1_DEV": "flux",
+        "FLUX1_SCHNELL": "flux", "SDXL": "sdxl", "STABLE_DIFFUSION_XL": "sdxl",
+    }
+    for key, normalized in aliases.items():
+        if value == key or value.startswith(key + "_"):
+            return normalized
+    return value.lower() or "unknown"
 
 def is_valid_image_file(file_path):
     """Fast check: exists, supported extension, non-empty (>0 bytes)."""
@@ -50,7 +67,8 @@ def scan_celebahq():
             records.append({
                 'filepath': f"{pf_abs}#{idx}",
                 'label': 'genuine',
-                'source': 'celebahq'
+                'source': 'celebahq',
+                'generator': 'camera_photo'
             })
 
     print(f"CelebA-HQ valid parquet records: {len(records):,}\n")
@@ -68,7 +86,7 @@ def scan_cifake():
             for f in files:
                 p = Path(root) / f
                 if is_valid_image_file(p):
-                    records.append({'filepath': str(p.resolve()), 'label': 'ai_generated', 'source': 'cifake'})
+                    records.append({'filepath': str(p.resolve()), 'label': 'ai_generated', 'source': 'cifake', 'generator': 'cifake'})
                     
     print(f"CIFAKE valid records: {len(records):,}\n")
     return records
@@ -97,7 +115,7 @@ def scan_casia():
             for f in files:
                 p = Path(root) / f
                 if is_valid_image_file(p):
-                    records.append({'filepath': str(p.resolve()), 'label': 'genuine', 'source': 'casia_au'})
+                    records.append({'filepath': str(p.resolve()), 'label': 'genuine', 'source': 'casia_au', 'generator': 'camera_photo'})
                     
     print(f"CASIA v2 valid records (genuine only): {len(records):,}\n")
     return records
@@ -120,7 +138,8 @@ def scan_tiny_genimage():
             {
                 'filepath': f"{pf_abs}#{idx}",
                 'label': 'genuine' if lbl == 0 else 'ai_generated',
-                'source': 'tiny_genimage_real' if lbl == 0 else 'tiny_genimage_fake'
+                'source': 'tiny_genimage_real' if lbl == 0 else 'tiny_genimage_fake',
+                'generator': 'camera_photo' if lbl == 0 else 'tiny_genimage'
             }
             for idx, lbl in enumerate(labels)
         ]
@@ -205,13 +224,17 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
 
             if fn_col is not None:
                 print(f"  Using column `{fn_col}` as image filename.")
-                for fname in meta_df[fn_col]:
+                model_col = next((c for c in meta_df.columns if c.lower() in ("model_used", "model", "generator")), None)
+                for _, meta_row in meta_df.iterrows():
+                    fname = meta_row[fn_col]
                     base_fname = Path(str(fname).strip()).name
                     if base_fname in disk_images:
+                        generator = _generator_from_name(meta_row[model_col] if model_col else base_fname)
                         records_from_csv.append({
                             'filepath': disk_images[base_fname],
                             'label': 'ai_generated',
-                            'source': 'sfhq_t2i'
+                            'source': 'sfhq_t2i',
+                            'generator': generator
                         })
                 print(f"  CSV-validated images: {len(records_from_csv):,}")
         except Exception as e:
@@ -224,7 +247,8 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
             records_from_csv.append({
                 'filepath': path_str,
                 'label': 'ai_generated',
-                'source': 'sfhq_t2i'
+                'source': 'sfhq_t2i',
+                'generator': _generator_from_name(Path(path_str).name)
             })
         print(f"  Directory index found: {len(records_from_csv):,} images")
 
@@ -270,32 +294,85 @@ def scan_sfhq_t2i(cap: int = SFHQ_T2I_CAP, seed: int = 42):
     print(f"SFHQ-T2I valid records: {len(final_records):,}\n")
     return final_records
 
+
+def split_records(df: pd.DataFrame, seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
+    """Create a generator-held-out test and validation split for synthetic images.
+
+    Real images are stratified by source into the three partitions. With only one
+    synthetic dataset, this is a generator generalization stress test, not a
+    fully independent cross-dataset study; the model card states that limitation.
+    """
+    df = df.copy()
+    if "generator" not in df:
+        df["generator"] = df["source"]
+    real = df[df.label == "genuine"].copy()
+    synthetic = df[df.label == "ai_generated"].copy()
+    if real.empty or synthetic.empty:
+        raise ValueError("Both genuine and ai_generated examples are required.")
+
+    real_train, real_holdout = train_test_split(
+        real, test_size=0.30, random_state=seed, stratify=real.source
+    )
+    real_val, real_test = train_test_split(
+        real_holdout, test_size=0.50, random_state=seed, stratify=real_holdout.source
+    )
+
+    generators = sorted(synthetic.generator.astype(str).unique())
+    if len(generators) < 3:
+        raise ValueError(
+            f"Generator-held-out splitting requires at least 3 synthetic generator groups; found {generators}. "
+            "Add generator metadata or more generators before making generalization claims."
+        )
+    def preferred_group(preference: str, available: list[str]) -> str:
+        return next((g for g in available if preference in g.lower()), available[0])
+
+    val_generator = preferred_group("sdxl", generators)
+    remaining = [g for g in generators if g != val_generator]
+    test_generator = preferred_group("dalle", remaining)
+    if test_generator == val_generator:
+        raise ValueError("Validation and test generator groups must be distinct.")
+    train_generators = [g for g in generators if g not in (val_generator, test_generator)]
+    if not train_generators:
+        raise ValueError("At least one synthetic generator must remain for training.")
+
+    syn_train = synthetic[synthetic.generator.isin(train_generators)]
+    syn_val = synthetic[synthetic.generator == val_generator]
+    syn_test = synthetic[synthetic.generator == test_generator]
+    train_df = pd.concat([real_train, syn_train], ignore_index=True).sample(frac=1, random_state=seed)
+    val_df = pd.concat([real_val, syn_val], ignore_index=True).sample(frac=1, random_state=seed)
+    test_df = pd.concat([real_test, syn_test], ignore_index=True).sample(frac=1, random_state=seed)
+    protocol = {
+        "name": "generator_holdout_stress_test",
+        "validation_generators": [val_generator],
+        "test_generators": [test_generator],
+        "training_generators": train_generators,
+        "real_image_split": "stratified random split within source; identity-disjointness is not established",
+        "limitation": "AI class has one source dataset; this is not a cross-dataset or universal detector evaluation."
+    }
+    return train_df, val_df, test_df, protocol
+
 def build_and_save_manifests():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     all_records = []
 
     all_records.extend(scan_celebahq())      # CelebA-HQ-256 (Genuine faces)
     # scan_cifake() intentionally removed — replaced by SFHQ-T2I below.
-    # CIFAKE is CIFAR-10 objects (low-res, non-face); SFHQ-T2I is a strict
-    # upgrade: 1024×1024 photorealistic AI faces from Flux/SDXL/DALL-E 3.
-    all_records.extend(scan_casia())         # CASIA v2 (Manipulated + Genuine)
-    all_records.extend(scan_tiny_genimage()) # Tiny-GenImage (optional)
+    # CIFAKE is CIFAR-10 objects (non-face); SFHQ-T2I supplies synthetic faces.
+    all_records.extend(scan_casia())         # CASIA v2 authentic images only
+    # Tiny-GenImage is intentionally excluded: it contains non-face categories,
+    # which would change the problem from face-image detection to source recognition.
     all_records.extend(scan_sfhq_t2i())     # SFHQ-T2I (replaces CIFAKE)
 
     df_full = pd.DataFrame(all_records)
-    print(f"Total verified dataset items: {len(df_full):,}\n")
+    print(f"Total manifest records: {len(df_full):,}\n")
     
     # Save full manifest
     full_path = OUTPUT_DIR / "manifest_full.csv"
     df_full.to_csv(full_path, index=False)
     print(f"Saved full manifest to `{full_path}`")
     
-    # Stratified 70/15/15 split
-    train_df, test_val_df = train_test_split(
-        df_full, test_size=0.30, random_state=42, stratify=df_full['label']
-    )
-    val_df, test_df = train_test_split(
-        test_val_df, test_size=0.50, random_state=42, stratify=test_val_df['label']
-    )
+    # Keep synthetic generator families disjoint across partitions.
+    train_df, val_df, test_df, protocol = split_records(df_full, seed=42)
     
     train_path = OUTPUT_DIR / "manifest_train.csv"
     val_path = OUTPUT_DIR / "manifest_val.csv"
@@ -304,6 +381,9 @@ def build_and_save_manifests():
     train_df.to_csv(train_path, index=False)
     val_df.to_csv(val_path, index=False)
     test_df.to_csv(test_path, index=False)
+    (OUTPUT_DIR / "split_protocol.json").write_text(
+        pd.Series(protocol).to_json(indent=2), encoding="utf-8"
+    )
     
     print(f"Saved train split ({len(train_df):,} rows) to `{train_path}`")
     print(f"Saved val split ({len(val_df):,} rows) to `{val_path}`")

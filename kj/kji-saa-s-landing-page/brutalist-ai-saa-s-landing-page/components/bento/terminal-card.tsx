@@ -3,18 +3,15 @@
 import { useEffect, useState } from "react"
 
 const LOG_LINES = [
-  "> Initializing forensic pipeline...",
-  "> Loading EfficientNet-B0 weights...",
-  "> Extracting EXIF & metadata...",
-  "> Running Error Level Analysis (ELA+)...",
-  "> Generating Score-CAM heatmap...",
-  "> Calculating Trust Fusion Score...",
-  "> Classifier confidence: 0.94",
-  "> Artifact signal: DETECTED",
-  "> Trust Score: 12/100 (MANIPULATED)",
-  "> Generating forensic PDF report...",
-  "> Status: REPORT_READY",
-  "> --------- CYCLE COMPLETE ---------",
+  "> TRUEFRAME research prototype",
+  "> Model: EfficientNet-B0 binary classifier",
+  "> Labels: genuine / AI-generated faces",
+  "> Synthetic test generator: held out",
+  "> Test metrics: pending new T4 run",
+  "> Softmax confidence: uncalibrated",
+  "> Fusion output: experimental heuristic",
+  "> Deepfake manipulation: outside training scope",
+  "> No authenticity claim is made",
 ]
 
 export function TerminalCard() {
@@ -47,7 +44,7 @@ export function TerminalCard() {
         <span className="h-2 w-2 bg-foreground" />
         <span className="h-2 w-2 border border-foreground" />
         <span className="ml-auto text-[10px] tracking-widest text-muted-foreground uppercase">
-          pipeline.log
+          scope.log
         </span>
       </div>
       <div className="flex-1 bg-foreground p-4 overflow-hidden">

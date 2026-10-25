@@ -1,32 +1,5 @@
-# TRUEFRAME Model Card — EfficientNet-B0 Classifier
+# Historical model card — do not cite as current evaluation
 
-## Model Overview
-- **Architecture**: EfficientNet-B0 (Pretrained ImageNet-1K backbone + 2-class Linear Head)
-- **Target Classes**: `genuine` (0), `ai_generated` (1)
-- **Task**: Deepfake & AI Image Detection (Binary Classification)
+This artifact belongs to the previous random image-level split and checkpoint. It reports validation scores near 100%, but the previous test report shows 85.2% and does not use the generator-held-out protocol. Its source counts and training configuration do not match the current code. It is retained only as an audit record.
 
-## Dataset & Manifest Breakdown
-- **Source Breakdown**:
-  - `celebahq` (Genuine): 19,646
-  - `cifake` (AI-Generated): 0
-  - `casia_tp` (Manipulated): 0
-  - `casia_au` (Genuine): 5,197
-- **Total Training Samples**: 52,843
-- **Total Validation Samples**: 11,324
-
-## Training Hyperparameters
-- **Optimizer**: AdamW
-- **Phase 1 LR**: 0.001 (Frozen backbone, 3 epochs)
-- **Phase 2 LR**: 0.0001 (Fine-tuning top 2 blocks, Cosine Scheduler)
-- **Batch Size**: 32
-- **Sampler**: WeightedRandomSampler (inverse class frequency)
-- **Loss Function**: CrossEntropyLoss (with optional class weights)
-
-## Validation Performance Results
-- **Best Validation Loss**: 0.2010
-- **Best Validation Accuracy**: 99.96%
-- **Best Validation Macro F1**: 0.9996
-
-### Per-Class Precision & Recall:
-- **Genuine**: Precision = 0.9996, Recall = 0.9996
-- **Ai_generated**: Precision = 0.9997, Recall = 0.9997
+Run `build_manifest.py`, `train.py`, and `evaluate.py` using the current code to produce a valid model card and test report. See the repository README for the Colab T4 workflow and current study limitations.

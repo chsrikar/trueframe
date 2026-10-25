@@ -124,6 +124,8 @@
     "f1_macro": 0.7485,
     "previous_raw_metadata_accuracy": 1.0,
     "shortcut_eliminated": false,
-    "assessment": "\u26a0\ufe0f WARN: Metadata features still retain subtle color distribution variance."
-  }
+    "assessment": "⚠️ WARN: Metadata features still retain subtle color distribution variance."
+  },
+  "run_status": "legacy_report_from_different_dataset_and_paths",
+  "limitation": "References D:\\demo\\data_canonical and 96,210 samples; it does not describe the current 75,491-image manifests."
 }

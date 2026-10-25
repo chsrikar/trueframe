@@ -48,38 +48,12 @@ function BlinkDot() {
   return <span className="inline-block h-2 w-2 bg-[#ea580c] animate-blink" />
 }
 
-/* ── live uptime counter ── */
-function UptimeCounter() {
-  const [seconds, setSeconds] = useState(0)
-
-  useEffect(() => {
-    const base = 31536000 + Math.floor(Math.random() * 1000000)
-    setSeconds(base)
-    const interval = setInterval(() => setSeconds((s) => s + 1), 1000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const format = (n: number) => {
-    const d = Math.floor(n / 86400)
-    const h = Math.floor((n % 86400) / 3600)
-    const m = Math.floor((n % 3600) / 60)
-    const s = n % 60
-    return `${d}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-  }
-
-  return (
-    <span className="font-mono text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums" }}>
-      {format(seconds)}
-    </span>
-  )
-}
-
 /* ── stat block ── */
 const STATS = [
   { label: "BACKBONE", value: "EffNet-B0" },
-  { label: "FUSION_RATIO", value: "50/25/25" },
-  { label: "TEST_ACCURACY", value: "99.9%" },
-  { label: "TRUST_SCORE", value: "0-100" },
+  { label: "FUSION_WEIGHTS", value: "HEURISTIC" },
+  { label: "HELD_OUT_TEST", value: "PENDING" },
+  { label: "SCORE_CALIBRATION", value: "NONE" },
 ]
 
 function StatBlock({ label, value, index }: { label: string; value: string; index: number }) {
@@ -139,7 +113,7 @@ export function AboutSection() {
               RENDER: iso_infra.obj
             </span>
             <span className="text-[9px] tracking-[0.2em] uppercase text-[#ea580c] font-mono">
-              LIVE
+              STATIC DEMO
             </span>
           </div>
 
@@ -191,7 +165,7 @@ export function AboutSection() {
                 transition={{ duration: 0.5, delay: 0.2, ease }}
                 className="text-3xl lg:text-5xl font-mono font-bold tracking-tight uppercase text-balance leading-tight"
               >
-                Multi-Modal Pipeline
+                Research Pipeline
                 <br />
                 <span className="text-[#ea580c]">System Architecture</span>
               </motion.h2>
@@ -204,7 +178,7 @@ export function AboutSection() {
                 className="flex flex-col gap-6"
               >
                 <p className="text-sm lg:text-base font-mono text-muted-foreground leading-relaxed">
-                  TRUEFRAME merges deep learning, metadata forensics, and physical signal analysis into a unified 4-layer architecture:
+                  TRUEFRAME classifies face images as genuine or AI-generated. Metadata, ELA/FFT summaries, and Grad-CAM are exploratory diagnostics, not validated authenticity tests:
                 </p>
 
                 {/* 4-Layer Architecture Cards Grid */}
@@ -219,11 +193,11 @@ export function AboutSection() {
                     <ul className="text-xs font-mono text-foreground/90 space-y-2 list-none p-0">
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">Depthwise Separable Convolutions:</strong> Reduces params while preserving spatial frequency representations.</span>
+                        <span><strong className="text-foreground">EfficientNet-B0:</strong> Image backbone with a binary head for genuine vs AI-generated face images.</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">Squeeze-and-Excitation (SE):</strong> Channel-wise attention focusing on subtle forgery cues across image channels.</span>
+                        <span><strong className="text-foreground">Scope:</strong> This dataset does not train a manipulated/deepfake class or establish cross-dataset reliability.</span>
                       </li>
                     </ul>
                     <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-border">
@@ -243,17 +217,17 @@ export function AboutSection() {
                     <ul className="text-xs font-mono text-foreground/90 space-y-2 list-none p-0">
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">EXIF & Camera Hardware:</strong> Parses Make, Model, DateTimeOriginal, & GPS tags to verify genuine origin.</span>
+                        <span><strong className="text-foreground">Available metadata:</strong> Reads selected EXIF/XMP fields when present; this does not verify image origin.</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">Software Fingerprints:</strong> Detects ComfyUI, Automatic1111, Midjourney, DALL-E, and Photoshop XMP history.</span>
+                        <span><strong className="text-foreground">Limit:</strong> Metadata may be absent, edited, or removed, so its absence is inconclusive.</span>
                       </li>
                     </ul>
                     <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-border">
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">EXIF / XMP</span>
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">Software Tags</span>
-                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Camera Fingerprint</span>
+                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Not provenance</span>
                     </div>
                   </div>
 
@@ -267,17 +241,17 @@ export function AboutSection() {
                     <ul className="text-xs font-mono text-foreground/90 space-y-2 list-none p-0">
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">Error Level Analysis (ELA+):</strong> Measures compression residuals to reveal localized editing & splicing.</span>
+                        <span><strong className="text-foreground">ELA summary:</strong> Shows recompression differences; these do not prove editing or splicing.</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c] font-bold">▸</span>
-                        <span><strong className="text-foreground">Frequency Domain (FFT):</strong> Computes 2D Fourier spectrum to detect periodic grid spikes from diffusion upscalers.</span>
+                        <span><strong className="text-foreground">FFT summary:</strong> Experimental frequency features; not validated for reliable generator detection.</span>
                       </li>
                     </ul>
                     <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-border">
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">ELA Engine</span>
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">2D FFT Spectrum</span>
-                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Grid Detection</span>
+                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Experimental</span>
                     </div>
                   </div>
 
@@ -285,23 +259,23 @@ export function AboutSection() {
                   <div className="border-2 border-foreground p-5 bg-background flex flex-col gap-3">
                     <div className="flex items-center justify-between border-b-2 border-foreground pb-2">
                       <span className="text-xs font-mono font-bold text-[#ea580c]">LAYER 04</span>
-                      <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold">MULTI-SIGNAL FUSION</span>
+                      <span className="text-[10px] font-mono text-muted-foreground uppercase font-bold">EXPLORATORY OUTPUTS</span>
                     </div>
-                    <h4 className="text-base font-mono font-bold uppercase">Trust Fusion & Grad-CAM</h4>
+                    <h4 className="text-base font-mono font-bold uppercase">Heuristic Summary & Grad-CAM</h4>
                     <ul className="text-xs font-mono text-foreground/90 space-y-2 list-none p-0">
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c]">▸</span>
-                        <span><strong className="text-foreground">50/25/25 Weighted Fusion:</strong> Combines Classifier (50%), Metadata (25%), and Artifacts (25%) into a 0–100 score.</span>
+                        <span><strong className="text-foreground">Uncalibrated heuristic:</strong> Experimental fixed weights; not a probability, confidence, or validated trust score.</span>
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-[#ea580c]">▸</span>
-                        <span><strong className="text-foreground">Grad-CAM Heatmaps:</strong> Generates activation maps highlighting exact image regions driving predictions.</span>
+                        <span><strong className="text-foreground">Grad-CAM:</strong> Activation visualization can help inspect model behavior; it is not proof of manipulation.</span>
                       </li>
                     </ul>
                     <div className="flex flex-wrap gap-1 mt-auto pt-2 border-t border-border">
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">50+25+25 Fusion</span>
                       <span className="text-[9px] font-mono bg-[#ea580c]/10 text-[#ea580c] px-2 py-0.5 border border-[#ea580c]/30 font-bold">Grad-CAM Heatmap</span>
-                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Trust Score</span>
+                      <span className="text-[9px] font-mono bg-foreground/5 text-foreground px-2 py-0.5 border border-foreground/20 font-bold">Heuristic index</span>
                     </div>
                   </div>
                 </div>
@@ -318,9 +292,9 @@ export function AboutSection() {
               >
                 <span className="h-2 w-2 bg-[#ea580c]" />
                 <span className="text-xs tracking-[0.2em] uppercase text-muted-foreground font-bold">
-                  UPTIME:
+                  SERVICE UPTIME:
                 </span>
-                <UptimeCounter />
+                <span className="font-mono text-[#ea580c]">NOT MEASURED</span>
               </motion.div>
             </div>
 

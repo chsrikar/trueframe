@@ -1,7 +1,8 @@
 """
-trust_fusion.py — Multi-Signal Weighted Trust Fusion for TRUEFRAME Pipeline.
-Fuses classifier confidence (modulated by Dual Grad-CAM spatial agreement) +
-metadata authenticity signals + ELA/FFT artifact signals into a single Trust Score (0–100 integer).
+trust_fusion.py — Experimental weighted signal index for the TRUEFRAME research prototype.
+Combines classifier, metadata, and ELA/FFT heuristic values into an integer from
+0 to 100. The score is not calibrated, is not a probability, and has no validated
+forensic or authenticity interpretation.
 
 OCR forensics has been retired in favor of Dual-Domain (Positive/Negative) Spatial Agreement.
 """
@@ -36,23 +37,22 @@ def compute_trust_score(
     """
     Compute a Multi-Signal Trust Score (0–100) for a single image.
 
-    Design Rationale & Mathematical Defense:
-    ----------------------------------------
+    Heuristic design (not empirically validated):
+    ----------------------------------------------
     1. Stability Factor Floor (0.55):
        `stability_factor = 0.55 + 0.45 * agreement_score`
-       Rationale: A floor of 0.55 ensures that natural domain-shift variance (e.g. inverting
-       natural lighting or dark skin tones) does not completely nullify the model's global
-       semantic representations, but still penalizes single-domain hallucinations by up to 45%.
+       Hand-selected constant; not optimized or validated on an independent dataset.
 
     2. Dual-Domain Inversion Cross-Validation:
        If the inverted image yields an opposing class prediction with high conviction,
        `inverted_signal` will diverge from `classifier_confidence`. When a domain flip occurs,
-       a cross-domain divergence penalty dampens the classifier confidence toward 0.50 (neutral).
+       a hand-selected divergence adjustment moves the classifier signal toward 0.50.
 
     3. Multi-Metric Agreement Split (0.45 IoU / 0.35 SSIM / 0.20 Pearson):
-       - IoU (45%): Strict spatial localization of top-20% suspicious hot zones.
+       - IoU (45%): Overlap of top-20% activation regions.
        - SSIM (35%): Structural continuity of activation textures and gradients.
        - Pearson (20%): Linear co-activation correlation.
+    This output must not be presented as calibrated trust, authenticity, or risk.
     """
     w_cls = weights.get("classifier", 0.50)
     w_meta = weights.get("metadata", 0.25)
@@ -124,8 +124,8 @@ def run_weight_sweep(
     weight_combinations: list[dict] = None,
 ) -> dict:
     """
-    Sweep several weight combinations and return the one that maximises
-    binary classification accuracy of the fused trust score against ground truth.
+    Exploratory sweep only. Use a validation set, never the reserved test set.
+    Maximizing this metric does not calibrate the resulting heuristic index.
     """
     if weight_combinations is None:
         weight_combinations = [
@@ -147,7 +147,7 @@ def run_weight_sweep(
                 classifier_confidence=cls_signal,
                 metadata_signal=pred["metadata_signal"],
                 artifact_signal=pred["artifact_signal"],
-                agreement_score=pred.get("agreement_score", 1.0),
+                agreement_score=pred.get("agreement_score"),
                 weights=weights,
             )
             predicted_genuine = score >= 50
@@ -174,7 +174,8 @@ def save_fusion_report(sweep_result: dict, notes: str = ""):
     """Save the weight sweep results to outputs/fusion_weights.md."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# TRUEFRAME Trust Fusion — Weight Sweep Results\n",
+        "# TRUEFRAME Experimental Heuristic — Weight Sweep\n",
+        "> Exploratory validation result only. This score is not calibrated and has no forensic interpretation.\n\n",
         f"**Best weights chosen**: {sweep_result['best_weights']}\n",
         f"**Best binary accuracy**: {sweep_result['best_accuracy']*100:.1f}%\n\n",
         "## Sweep Table\n\n",

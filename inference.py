@@ -85,7 +85,7 @@ def analyze_image(image_path: Union[str, Path, Image.Image]) -> Dict[str, Any]:
               "confidence": float,
               "class_probabilities": dict
           },
-          "trust_score": int,                  # 0–100 fused trust score
+          "trust_score": int,                  # experimental 0–100 heuristic index, not calibrated
           "agreement_score": float,            # 0.0–1.0 composite spatial consensus
           "agreement_details": dict,           # {hotspot_iou, ssim_score, pearson_corr}
           "heatmap_fused": PIL.Image,          # Multiplicative fused heatmap
@@ -154,13 +154,15 @@ def analyze_image(image_path: Union[str, Path, Image.Image]) -> Dict[str, Any]:
         heatmap_normal = None
         heatmap_inverted = None
         heatmap_fused = None
-        agreement_score = 1.0
+        agreement_score = None
         agreement_details = {
-            "agreement_score": 1.0,
-            "hotspot_iou": 1.0,
-            "ssim_score": 1.0,
-            "pearson_corr": 1.0,
-            "pearson_norm": 1.0
+            "agreement_score": None,
+            "hotspot_iou": None,
+            "ssim_score": None,
+            "pearson_corr": None,
+            "pearson_norm": None,
+            "available": False,
+            "error": str(e),
         }
 
     # ---- 5. Metadata Forensics (CPU) ----
@@ -193,10 +195,13 @@ def analyze_image(image_path: Union[str, Path, Image.Image]) -> Dict[str, Any]:
     return {
         "verdict": verdict,
         "confidence": round(confidence, 4),
+        "confidence_calibrated": False,
         "class_probabilities": class_probabilities,
         "inverted_prediction": inverted_prediction,
         "trust_score": trust_score,
+        "trust_score_type": "experimental_heuristic",
         "agreement_score": agreement_score,
+        "agreement_available": agreement_score is not None,
         "agreement_details": agreement_details,
         "heatmap_fused": heatmap_fused,
         "heatmap_normal": heatmap_normal,

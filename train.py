@@ -2,6 +2,7 @@ import torch_compat  # noqa: F401
 import os
 import sys
 import json
+import hashlib
 import time
 import argparse
 import random
@@ -21,8 +22,8 @@ from gpu_check import require_cuda
 
 # Ensure UTF-8 output encoding for terminal
 PROJECT_ROOT = Path(__file__).resolve().parent
-OUTPUT_DIR = PROJECT_ROOT / "outputs"
-CHECKPOINT_DIR = PROJECT_ROOT / "checkpoints"
+OUTPUT_DIR = Path(os.environ.get("TRUEFRAME_OUTPUT_DIR", PROJECT_ROOT / "outputs")).expanduser().resolve()
+CHECKPOINT_DIR = Path(os.environ.get("TRUEFRAME_CHECKPOINT_DIR", PROJECT_ROOT / "checkpoints")).expanduser().resolve()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -33,7 +34,7 @@ def set_seed(seed=42):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True    # Auto-tune cuDNN kernels for fixed input size (256×256) → 5–15% free GPU speedup
+    torch.backends.cudnn.benchmark = False
 
 def build_model(num_classes=2):
     weights = EfficientNet_B0_Weights.DEFAULT
@@ -73,10 +74,13 @@ def unfreeze_top_blocks(model, num_blocks=2):
 
 def train_epoch(model, dataloader, criterion, optimizer, scaler, device, use_amp=True, mixup_alpha=0.3):
     model.train()
+    # Frozen backbone blocks must also keep BatchNorm statistics fixed.
+    for block in model.features:
+        if not any(p.requires_grad for p in block.parameters()):
+            block.eval()
     running_loss = 0.0
     total_samples = 0
-    all_preds = []
-    all_targets = []
+    expected_correct = 0.0
     
     for images, targets in dataloader:
         images = images.to(device, non_blocking=True)
@@ -113,6 +117,11 @@ def train_epoch(model, dataloader, criterion, optimizer, scaler, device, use_amp
                 loss = (lam_vec * loss_a + (1.0 - lam_vec) * loss_b).mean()
                 loss.backward()
                 optimizer.step()
+            preds = torch.argmax(outputs, dim=1)
+            expected_correct += (
+                lam * (preds == targets_a).float().sum().item()
+                + (1.0 - lam) * (preds == targets_b).float().sum().item()
+            )
         else:
             if use_amp and device.type == 'cuda':
                 with torch.amp.autocast(device_type='cuda'):
@@ -126,18 +135,15 @@ def train_epoch(model, dataloader, criterion, optimizer, scaler, device, use_amp
                 loss = criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
+            preds = torch.argmax(outputs, dim=1)
+            expected_correct += (preds == targets).float().sum().item()
             
         running_loss += loss.item() * batch_size
         total_samples += batch_size
-        preds = torch.argmax(outputs, dim=1).detach().cpu().numpy()
-        all_preds.extend(preds)
-        all_targets.extend(targets.detach().cpu().numpy())
-        
     epoch_loss = running_loss / max(total_samples, 1)
-    epoch_acc = accuracy_score(all_targets, all_preds)
-    epoch_f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0)
-    
-    return epoch_loss, epoch_acc, epoch_f1
+    # This expected accuracy reflects both MixUp labels; it is not hard-label F1.
+    expected_accuracy = expected_correct / max(total_samples, 1)
+    return epoch_loss, expected_accuracy, None
 
 def evaluate(model, dataloader, criterion, device, use_amp=True):
     model.eval()
@@ -180,41 +186,41 @@ def evaluate(model, dataloader, criterion, device, use_amp=True):
         
     return epoch_loss, epoch_acc, epoch_f1, per_class_metrics
 
-def generate_model_card(best_metrics, dataset_stats, hyperparams):
-    card_content = f"""# TRUEFRAME Model Card — EfficientNet-B0 Classifier
+def generate_model_card(best_metrics, train_df, val_df, hyperparams):
+    sources = train_df.groupby(["label", "source"]).size().to_dict()
+    generators = sorted(train_df.loc[train_df.label == "ai_generated", "generator"].astype(str).unique()) if "generator" in train_df else []
+    card_content = f"""# TRUEFRAME Model Card
 
-## Model Overview
-- **Architecture**: EfficientNet-B0 (Pretrained ImageNet-1K backbone + 2-class Linear Head)
-- **Target Classes**: `genuine` (0), `ai_generated` (1)
-- **Task**: Deepfake & AI Image Detection (Binary Classification)
+## Intended use
+Research prototype for binary classification of the specific genuine and AI-generated face images in the declared manifests. It is not a general deepfake or image manipulation detector and should not be used as proof of authenticity.
 
-## Dataset & Manifest Breakdown
-- **Source Breakdown**:
-  - `celebahq` (Genuine): {dataset_stats.get('celebahq', 0):,}
-  - `cifake` (AI-Generated): {dataset_stats.get('cifake', 0):,}
-  - `casia_tp` (Manipulated): {dataset_stats.get('casia_tp', 0):,}
-  - `casia_au` (Genuine): {dataset_stats.get('casia_au', 0):,}
-- **Total Training Samples**: {dataset_stats.get('train_total', 0):,}
-- **Total Validation Samples**: {dataset_stats.get('val_total', 0):,}
+## Model
+- Architecture: torchvision EfficientNet-B0 with ImageNet weights and a two-layer MLP head (1280 → 256 GELU → 2).
+- Labels: `genuine` (0), `ai_generated` (1).
+- Training updates the classifier head first, then the top five EfficientNet feature blocks.
+- Inputs: RGB images resized/cropped to 256 × 256 and ImageNet-normalized.
 
-## Training Hyperparameters
-- **Optimizer**: AdamW
-- **Phase 1 LR**: {hyperparams['phase1_lr']} (Frozen backbone, 3 epochs)
-- **Phase 2 LR**: {hyperparams['phase2_lr']} (Fine-tuning top 2 blocks, Cosine Scheduler)
-- **Batch Size**: {hyperparams['batch_size']}
-- **Sampler**: WeightedRandomSampler (inverse class frequency)
-- **Loss Function**: CrossEntropyLoss (with optional class weights)
+## Data and split
+- Training images: {len(train_df):,}; validation images: {len(val_df):,}.
+- Training counts by label and source: `{sources}`.
+- Synthetic generator families present in training: {', '.join(generators) or 'not recorded'}.
+- Split manifest: `split_protocol.json`. The synthetic validation and test generators are disjoint from training.
+- Limitation: the AI class comes from one dataset family; real-image identity disjointness is not established. Results do not establish cross-dataset, identity, or universal generalization.
+- Manipulated/deepfake images are not a target class in this experiment.
 
-## Validation Performance Results
-- **Best Validation Loss**: {best_metrics['val_loss']:.4f}
-- **Best Validation Accuracy**: {best_metrics['val_acc']*100:.2f}%
-- **Best Validation Macro F1**: {best_metrics['val_f1']:.4f}
+## Training configuration
+- Optimizer: AdamW; phase 1 LR {hyperparams['phase1_lr']}; phase 2 LR {hyperparams['phase2_lr']}.
+- Batch size: {hyperparams['batch_size']}; MixUp alpha: {hyperparams['mixup_alpha']}.
+- Seed: {hyperparams['seed']}; phase 1 epochs: {hyperparams['phase1_epochs']}; phase 2 epochs: {hyperparams['phase2_epochs']}.
+- Selection metric: validation macro F1.
 
-### Per-Class Precision & Recall:
+## Validation result
+- Best validation loss: {best_metrics['val_loss']:.4f}
+- Best validation accuracy: {best_metrics['val_acc']:.4f}
+- Best validation macro F1: {best_metrics['val_f1']:.4f}
+
+This card reports validation only. Use `evaluate.py` on the held-out test manifest for test metrics. Confidence is raw softmax output and is not calibrated.
 """
-    for cls, m in best_metrics.get('per_class', {}).items():
-        card_content += f"- **{cls.capitalize()}**: Precision = {m['precision']:.4f}, Recall = {m['recall']:.4f}\n"
-        
     card_path = OUTPUT_DIR / "model_card.md"
     with open(card_path, "w", encoding="utf-8") as f:
         f.write(card_content)
@@ -284,6 +290,19 @@ def train_pipeline(args):
     
     train_df = pd.read_csv(train_csv)
     val_df = pd.read_csv(val_csv)
+    manifest_hashes = {
+        "train": hashlib.sha256(train_csv.read_bytes()).hexdigest(),
+        "validation": hashlib.sha256(val_csv.read_bytes()).hexdigest(),
+    }
+    training_config = {
+        'phase1_epochs': args.phase1_epochs,
+        'phase2_epochs': args.phase2_epochs,
+        'phase1_lr': args.phase1_lr,
+        'phase2_lr': args.phase2_lr,
+        'batch_size': args.batch_size,
+        'mixup_alpha': args.mixup_alpha,
+        'seed': args.seed,
+    }
     
     print(f"Loaded train set ({len(train_df):,} samples) and val set ({len(val_df):,} samples).")
     
@@ -327,17 +346,38 @@ def train_pipeline(args):
     best_val_f1 = 0.0
     best_metrics = {}
     training_log = []
+    resume_optimizer_state = None
+    resume_scheduler_state = None
+    resume_scaler_state = None
     
     best_model_path = CHECKPOINT_DIR / "best_model.pth"
     latest_ckpt_path = CHECKPOINT_DIR / "latest_checkpoint.pth"
     
     if args.resume and latest_ckpt_path.exists():
         print(f"🔄 Resuming training from checkpoint `{latest_ckpt_path}`...")
-        ckpt = torch.load(latest_ckpt_path, map_location=device)
+        ckpt = torch.load(latest_ckpt_path, map_location=device, weights_only=False)
+        if ckpt.get("manifest_hashes") != manifest_hashes:
+            raise ValueError("Checkpoint was created from different/missing manifests. Start a fresh run or use its original manifests.")
+        if ckpt.get("training_config") != training_config:
+            raise ValueError("Checkpoint training configuration differs from this run. Resume with the original settings or start a fresh run.")
         model.load_state_dict(ckpt['model_state_dict'])
         start_epoch = ckpt['epoch'] + 1
         best_val_f1 = ckpt.get('best_val_f1', 0.0)
+        best_metrics = ckpt.get('best_metrics', {})
         training_log = ckpt.get('training_log', [])
+        resume_optimizer_state = ckpt.get('optimizer_state_dict')
+        resume_scheduler_state = ckpt.get('scheduler_state_dict')
+        resume_scaler_state = ckpt.get('scaler_state_dict')
+        if ckpt.get('python_rng_state') is not None:
+            random.setstate(ckpt['python_rng_state'])
+        if ckpt.get('numpy_rng_state') is not None:
+            np.random.set_state(ckpt['numpy_rng_state'])
+        if ckpt.get('torch_rng_state') is not None:
+            torch.set_rng_state(ckpt['torch_rng_state'])
+        if torch.cuda.is_available() and ckpt.get('cuda_rng_state') is not None:
+            torch.cuda.set_rng_state_all(ckpt['cuda_rng_state'])
+        if resume_scaler_state is not None:
+            scaler.load_state_dict(resume_scaler_state)
         print(f"Resumed at epoch {start_epoch} (Best Val F1 so far: {best_val_f1:.4f})")
         
     print("\n" + "="*80)
@@ -353,6 +393,7 @@ def train_pipeline(args):
     
     optimizer = optim.AdamW(model.classifier.parameters(), lr=args.phase1_lr, weight_decay=1e-4)
     scheduler = None
+    resume_states_loaded = False
     
     for epoch in range(start_epoch, total_epochs + 1):
         epoch_start_time = time.time()
@@ -364,6 +405,9 @@ def train_pipeline(args):
                 print(f"\n--- Phase 1: Training Classifier Head Only (Epochs 1-{phase1_epochs}, LR={args.phase1_lr}) ---")
                 freeze_backbone(model)
                 optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.phase1_lr, weight_decay=1e-4)
+                if resume_optimizer_state is not None and not resume_states_loaded:
+                    optimizer.load_state_dict(resume_optimizer_state)
+                    resume_states_loaded = True
         else:
             current_phase = 2
             if epoch == phase1_epochs + 1 or (start_epoch > phase1_epochs and epoch == start_epoch):
@@ -371,8 +415,13 @@ def train_pipeline(args):
                 unfreeze_top_blocks(model, num_blocks=5)
                 optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.phase2_lr, weight_decay=1e-4)
                 scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=8, T_mult=1, eta_min=1e-6)
+                if resume_optimizer_state is not None and not resume_states_loaded:
+                    optimizer.load_state_dict(resume_optimizer_state)
+                    if resume_scheduler_state is not None:
+                        scheduler.load_state_dict(resume_scheduler_state)
+                    resume_states_loaded = True
 
-        train_loss, train_acc, train_f1 = train_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp=True, mixup_alpha=args.mixup_alpha)
+        train_loss, train_acc, _ = train_epoch(model, train_loader, criterion, optimizer, scaler, device, use_amp=True, mixup_alpha=args.mixup_alpha)
         if device.type == 'cuda':
             torch.cuda.empty_cache()
         val_loss, val_acc, val_f1, per_class = evaluate(model, val_loader, criterion, device)
@@ -392,8 +441,7 @@ def train_pipeline(args):
             'epoch': epoch,
             'phase': current_phase,
             'train_loss': float(train_loss),
-            'train_acc': float(train_acc),
-            'train_f1': float(train_f1),
+            'train_expected_accuracy': float(train_acc),
             'val_loss': float(val_loss),
             'val_acc': float(val_acc),
             'val_f1': float(val_f1),
@@ -407,18 +455,10 @@ def train_pipeline(args):
             json.dump(training_log, f, indent=2)
             
         print(f"Epoch [{epoch:02d}/{total_epochs:02d}] (P{current_phase}) | "
-              f"Train Loss: {train_loss:.4f} Acc: {train_acc*100:.1f}% F1: {train_f1:.4f} | "
+              f"Train Loss: {train_loss:.4f} Expected Acc: {train_acc*100:.1f}% | "
               f"Val Loss: {val_loss:.4f} Acc: {val_acc*100:.1f}% F1: {val_f1:.4f} | ({elapsed:.1f}s)")
 
-        # Save latest checkpoint
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'best_val_f1': best_val_f1,
-            'training_log': training_log
-        }, latest_ckpt_path)
-
+        stop_after_epoch = False
         # Check for best model
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
@@ -430,7 +470,27 @@ def train_pipeline(args):
             no_improve_counter += 1
             if current_phase == 2 and no_improve_counter >= patience:
                 print(f"\n✋ Early stopping triggered after {patience} epochs without validation improvement.")
-                break
+                stop_after_epoch = True
+
+        # Save checkpoint after updating best metrics so resume state is complete.
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict() if scheduler is not None else None,
+            'scaler_state_dict': scaler.state_dict(),
+            'best_val_f1': best_val_f1,
+            'best_metrics': best_metrics,
+            'manifest_hashes': manifest_hashes,
+            'training_config': training_config,
+            'training_log': training_log,
+            'python_rng_state': random.getstate(),
+            'numpy_rng_state': np.random.get_state(),
+            'torch_rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        }, latest_ckpt_path)
+        if stop_after_epoch:
+            break
 
     print("\n" + "="*80)
     print("                      TRAINING COMPLETE")
@@ -438,24 +498,24 @@ def train_pipeline(args):
     print("="*80)
 
     # Generate Model Card
-    dataset_stats = train_df['source'].value_counts().to_dict()
-    dataset_stats['train_total'] = len(train_df)
-    dataset_stats['val_total'] = len(val_df)
-    
     hyperparams = {
         'phase1_lr': args.phase1_lr,
         'phase2_lr': args.phase2_lr,
-        'batch_size': args.batch_size
+        'batch_size': args.batch_size,
+        'mixup_alpha': args.mixup_alpha,
+        'seed': args.seed,
+        'phase1_epochs': args.phase1_epochs,
+        'phase2_epochs': args.phase2_epochs,
     }
-    
-    generate_model_card(best_metrics, dataset_stats, hyperparams)
+    if best_metrics:
+        generate_model_card(best_metrics, train_df, val_df, hyperparams)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TRUEFRAME Training Pipeline")
     parser.add_argument("--train-manifest", type=str, default=str(PROJECT_ROOT / "manifest_train.csv"))
     parser.add_argument("--val-manifest", type=str, default=str(PROJECT_ROOT / "manifest_val.csv"))
-    parser.add_argument("--batch-size", type=int, default=16,
-                        help="Batch size per step. Default 16 for RTX 3050 4GB VRAM.")
+    parser.add_argument("--batch-size", type=int, default=32,
+                        help="Batch size per step. Colab T4 typically supports 32 at 256px; lower if needed.")
     parser.add_argument("--phase1-epochs", type=int, default=3)
     parser.add_argument("--phase2-epochs", type=int, default=14)
     parser.add_argument("--phase1-lr", type=float, default=1e-3)

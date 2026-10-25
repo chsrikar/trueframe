@@ -97,6 +97,7 @@ export function ForensicsPlayground() {
 
   async function processFile(file: File, shouldInvert: boolean = false) {
     setSelectedFile(file)
+    setResult(null)
     setError(null)
     const reader = new FileReader()
     reader.onload = () => {
@@ -120,59 +121,15 @@ export function ForensicsPlayground() {
   async function runAnalysis(file: File) {
     setLoading(true)
     setError(null)
-    setAnalyzingStep("Initializing PyTorch Model & GPU...")
+    setAnalyzingStep("Checking analysis service...")
 
     try {
-      if (backendOnline) {
-        setAnalyzingStep("Running Dual-Domain Forward Passes (Positive & Inverted)...")
-        await new Promise((r) => setTimeout(r, 200))
-        setAnalyzingStep("Generating Dual Grad-CAM & Computing Spatial Agreement...")
-        const data = await analyzeImageWithAPI(file)
-        setResult(data)
-      } else {
-        // Fallback to sample simulation if server is offline
-        await simulateAnalysis()
-        const isAI = file.name.toLowerCase().includes("ai") || file.name.toLowerCase().includes("fake")
-        setResult({
-          filename: file.name,
-          verdict: isAI ? "AI-Generated" : "Genuine (Real)",
-          confidence: isAI ? 0.974 : 0.962,
-          trust_score: isAI ? 18 : 94,
-          agreement_score: isAI ? 0.885 : 0.920,
-          agreement_details: {
-            hotspot_iou: isAI ? 0.84 : 0.89,
-            ssim_score: isAI ? 0.91 : 0.94,
-            pearson_corr: isAI ? 0.89 : 0.92,
-          },
-          class_probabilities: {
-            genuine: isAI ? 0.026 : 0.962,
-            ai_generated: isAI ? 0.974 : 0.038,
-          },
-          inverted_prediction: {
-            verdict: isAI ? "AI-Generated" : "Genuine (Real)",
-            confidence: isAI ? 0.958 : 0.945,
-            class_probabilities: {
-              genuine: isAI ? 0.042 : 0.945,
-              ai_generated: isAI ? 0.958 : 0.055,
-            }
-          },
-          heatmap_b64: null,
-          metadata_findings: {
-            metadata_trust_signal: isAI ? 0.2 : 0.9,
-            has_exif: !isAI,
-            software: isAI ? null : "Camera Raw 15.0",
-            notes: "Demo analysis (Backend offline). Start api_server.py for live GPU inference.",
-          },
-          artifact_findings: {
-            artifact_trust_signal: isAI ? 0.15 : 0.88,
-            ela_mean_score: isAI ? 0.82 : 0.15,
-            fft_grid_score: isAI ? 0.79 : 0.08,
-            flags: isAI
-              ? ["High-frequency periodic FFT lattice anomaly detected", "Uniform ELA distribution across facial contours"]
-              : ["No strong artifact signals detected."],
-          },
-        })
-      }
+      const isHealthy = backendOnline ?? await checkBackendHealth()
+      setBackendOnline(isHealthy)
+      if (!isHealthy) throw new Error("The analysis service is offline. Start the backend and try again; no prediction was generated.")
+      setAnalyzingStep("Analyzing the uploaded image...")
+      const data = await analyzeImageWithAPI(file)
+      setResult(data)
     } catch (err: any) {
       console.error(err)
       setError(err.message || "Failed to analyze image")
@@ -180,15 +137,6 @@ export function ForensicsPlayground() {
       setLoading(false)
       setAnalyzingStep("")
     }
-  }
-
-  async function simulateAnalysis() {
-    setAnalyzingStep("Extracting EXIF Metadata & Headers...")
-    await new Promise((r) => setTimeout(r, 300))
-    setAnalyzingStep("Performing ELA & FFT Grid Frequency Analysis...")
-    await new Promise((r) => setTimeout(r, 350))
-    setAnalyzingStep("Fusing Positive & Inverted Grad-CAM Spatial Consensus...")
-    await new Promise((r) => setTimeout(r, 350))
   }
 
   function loadSample(key: string) {
@@ -218,14 +166,15 @@ export function ForensicsPlayground() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#ea580c]/10 border border-[#ea580c] text-[#ea580c] font-mono text-xs mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              DUAL-DOMAIN FORENSIC ENGINE
+              FACE IMAGE CLASSIFIER DEMO
             </div>
             <h2 className="font-pixel text-3xl sm:text-5xl text-foreground uppercase tracking-tight">
               INTERACTIVE AI PLAYGROUND
             </h2>
             <p className="font-mono text-xs sm:text-sm text-muted-foreground mt-2 max-w-2xl">
-              Upload any image to evaluate TRUEFRAME's dual-domain EfficientNet-B0 classifier, positive/negative Grad-CAM spatial agreement, EXIF metadata parser, and fused Trust Score.
+              For face images only; non-face uploads are out of distribution. The model labels genuine vs AI-generated faces. Raw softmax is uncalibrated; metadata and image-analysis signals are experimental.
             </p>
+            <p className="font-mono text-[10px] text-amber-600 mt-2">Sample cards are illustrative mock outputs. Only an uploaded image with the analysis API online receives a model prediction.</p>
           </div>
 
           {/* Backend Status Indicator */}
@@ -233,7 +182,7 @@ export function ForensicsPlayground() {
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${backendOnline ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
               <span className="font-bold text-foreground">
-                {backendOnline ? "GPU DUAL-CAM ONLINE" : "DEMO MODE (BACKEND OFFLINE)"}
+                {backendOnline ? "ANALYSIS API ONLINE" : "ANALYSIS API OFFLINE"}
               </span>
             </div>
             <button
@@ -341,7 +290,7 @@ export function ForensicsPlayground() {
                     onClick={() => loadSample("manipulated_face")}
                     className="p-2 border border-border hover:border-amber-500 bg-background text-left transition-colors font-mono text-[10px]"
                   >
-                    <span className="block font-bold text-amber-500">DEEPFAKE</span>
+                    <span className="block font-bold text-amber-500">OUT OF SCOPE</span>
                     <span className="text-muted-foreground truncate block">Face Swap</span>
                   </button>
                 </div>
@@ -356,11 +305,11 @@ export function ForensicsPlayground() {
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>EXPLAINABILITY:</span>
-                <span className="text-foreground font-bold">Dual-Domain Grad-CAM (IoU + SSIM Fusion)</span>
+                <span className="text-foreground font-bold">Optional Grad-CAM activation map</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>FUSION WEIGHTS:</span>
-                <span className="text-foreground font-bold">CLS 50% | META 25% | ART 25%</span>
+                <span className="text-foreground font-bold">Experimental heuristic; uncalibrated</span>
               </div>
             </div>
           </div>
@@ -380,7 +329,7 @@ export function ForensicsPlayground() {
                     <button
                       onClick={() => generatePDFReport(result, imagePreview)}
                       className="flex items-center gap-2 px-3 py-1.5 bg-[#ea580c] hover:bg-[#c2410c] text-white font-mono text-xs font-bold border border-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all"
-                      title="Download complete PDF Forensic Audit Report"
+                      title="Download research demo report"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>PDF REPORT</span>
@@ -480,7 +429,7 @@ export function ForensicsPlayground() {
                         {/* Trust Score Card */}
                         <div className="border border-border p-4 bg-background">
                           <div className="flex items-center justify-between mb-2 font-mono text-xs">
-                            <span className="text-muted-foreground uppercase">FUSED TRUST SCORE</span>
+                            <span className="text-muted-foreground uppercase">EXPERIMENTAL HEURISTIC INDEX</span>
                             <span className="font-bold text-foreground">{result.trust_score} / 100</span>
                           </div>
 
@@ -498,11 +447,7 @@ export function ForensicsPlayground() {
                           </div>
 
                           <p className="font-mono text-[11px] text-muted-foreground">
-                            {result.trust_score > 70
-                              ? "High integrity verified across neural classifier, EXIF tags, and ELA artifacts."
-                              : result.trust_score > 40
-                              ? "Moderate confidence. Check spatial agreement & compression flags."
-                              : "High risk. Synthetic generation or deepfake manipulation confirmed."}
+                            "Hand-weighted demo signal only. It is not calibrated, does not verify integrity, and does not confirm manipulation."
                           </p>
                         </div>
 
@@ -511,9 +456,9 @@ export function ForensicsPlayground() {
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-muted-foreground uppercase">DUAL-CAM SPATIAL AGREEMENT</span>
                             <span className="font-bold text-[#ea580c]">
-                              {result.agreement_score !== undefined
+                              {result.agreement_score != null
                                 ? `${(result.agreement_score * 100).toFixed(1)}%`
-                                : "92.0%"}
+                                : "Unavailable"}
                             </span>
                           </div>
 
@@ -521,11 +466,7 @@ export function ForensicsPlayground() {
                             <div
                               className="h-full bg-[#ea580c] transition-all duration-700"
                               style={{
-                                width: `${
-                                  result.agreement_score !== undefined
-                                    ? result.agreement_score * 100
-                                    : 92
-                                }%`,
+                                width: `${result.agreement_score != null ? result.agreement_score * 100 : 0}%`,
                               }}
                             />
                           </div>
@@ -533,25 +474,25 @@ export function ForensicsPlayground() {
                           <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] text-muted-foreground text-center border-t border-border/50">
                             <div>
                               <span className="block text-foreground font-bold">
-                                {result.agreement_details?.hotspot_iou !== undefined
+                                {result.agreement_details?.hotspot_iou != null
                                   ? `${(result.agreement_details.hotspot_iou * 100).toFixed(0)}%`
-                                  : "88%"}
+                                  : "—"}
                               </span>
                               <span>Hotspot IoU</span>
                             </div>
                             <div>
                               <span className="block text-foreground font-bold">
-                                {result.agreement_details?.ssim_score !== undefined
+                                {result.agreement_details?.ssim_score != null
                                   ? `${(result.agreement_details.ssim_score * 100).toFixed(0)}%`
-                                  : "94%"}
+                                  : "—"}
                               </span>
                               <span>SSIM Score</span>
                             </div>
                             <div>
                               <span className="block text-foreground font-bold">
-                                {result.agreement_details?.pearson_corr !== undefined
+                                {result.agreement_details?.pearson_corr != null
                                   ? result.agreement_details.pearson_corr.toFixed(2)
-                                  : "0.91"}
+                                  : "—"}
                               </span>
                               <span>Pearson r</span>
                             </div>
@@ -562,7 +503,7 @@ export function ForensicsPlayground() {
                       {/* Class Probability Breakdown */}
                       <div className="border border-border p-4 bg-background font-mono text-xs">
                         <span className="text-muted-foreground uppercase block mb-3">
-                          PRIMARY CLASSIFICATION PROBABILITY DISTRIBUTION
+                          CLASSIFIER OUTPUT (RAW SOFTMAX; NOT CALIBRATED)
                         </span>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -661,7 +602,7 @@ export function ForensicsPlayground() {
                         ) : (
                           <div className="absolute inset-0 bg-red-500/20 backdrop-blur-xs flex items-center justify-center p-6 text-center">
                             <p className="font-mono text-xs text-white bg-black/90 p-4 border border-white/20 max-w-md">
-                              🔥 Dual Grad-CAM activation heatmap is generated live by `inference.py` when connected to the backend PyTorch CUDA model.
+                              Grad-CAM is an optional model activation visualization. It may be unavailable and does not prove manipulation.
                             </p>
                           </div>
                         )}
@@ -672,31 +613,31 @@ export function ForensicsPlayground() {
                         <div className="border border-border p-3 bg-background">
                           <span className="text-[10px] text-muted-foreground block">HOTSPOT IOU (TOP 20%):</span>
                           <span className="text-base font-bold text-foreground">
-                            {result.agreement_details?.hotspot_iou !== undefined
+                            {result.agreement_details?.hotspot_iou != null
                               ? `${(result.agreement_details.hotspot_iou * 100).toFixed(1)}%`
-                              : "88.0%"}
+                              : "N/A"}
                           </span>
                         </div>
                         <div className="border border-border p-3 bg-background">
                           <span className="text-[10px] text-muted-foreground block">SSIM STRUCTURAL SCORE:</span>
                           <span className="text-base font-bold text-foreground">
-                            {result.agreement_details?.ssim_score !== undefined
+                            {result.agreement_details?.ssim_score != null
                               ? `${(result.agreement_details.ssim_score * 100).toFixed(1)}%`
-                              : "94.0%"}
+                              : "N/A"}
                           </span>
                         </div>
                         <div className="border border-border p-3 bg-background">
                           <span className="text-[10px] text-muted-foreground block">PEARSON CO-ACTIVATION:</span>
                           <span className="text-base font-bold text-foreground">
-                            {result.agreement_details?.pearson_corr !== undefined
+                            {result.agreement_details?.pearson_corr != null
                               ? result.agreement_details.pearson_corr.toFixed(3)
-                              : "0.915"}
+                              : "N/A"}
                           </span>
                         </div>
                       </div>
 
                       <p className="font-mono text-[11px] text-muted-foreground">
-                        Multiplicative fusion naturally suppresses single-domain noise while amplifying consensus regions where both positive and inverted passes identify persistent synthesis boundaries.
+                        These experimental map-agreement statistics have not been validated as evidence of synthesis or manipulation.
                       </p>
                     </div>
                   )}
@@ -705,9 +646,9 @@ export function ForensicsPlayground() {
                   {activeTab === "metadata" && (
                     <div className="space-y-4 font-mono text-xs">
                       <div className="border border-border p-4 bg-background">
-                        <span className="text-muted-foreground block mb-2">EXIF METADATA TRUST SIGNAL</span>
+                        <span className="text-muted-foreground block mb-2">EXIF METADATA HEURISTIC</span>
                         <div className="text-2xl font-bold text-foreground">
-                          {((result.metadata_findings.metadata_trust_signal || 0) * 100).toFixed(0)}% TRUST SCORE
+                          {((result.metadata_findings.metadata_trust_signal || 0) * 100).toFixed(0)}% HEURISTIC SIGNAL
                         </div>
                       </div>
 
@@ -715,13 +656,13 @@ export function ForensicsPlayground() {
                         <div className="border border-border p-3 bg-muted/20">
                           <span className="text-muted-foreground block text-[10px]">HAS EXIF HEADER:</span>
                           <span className="font-bold text-foreground">
-                            {result.metadata_findings.has_exif ? "YES (PASSED)" : "NO (MISSING)"}
+                            {result.metadata_findings.has_exif ? "PRESENT" : "NOT FOUND"}
                           </span>
                         </div>
                         <div className="border border-border p-3 bg-muted/20">
                           <span className="text-muted-foreground block text-[10px]">SOFTWARE SIGNATURE:</span>
                           <span className="font-bold text-foreground truncate block">
-                            {result.metadata_findings.software || "None (Stripped)"}
+                            {result.metadata_findings.software || "None detected"}
                           </span>
                         </div>
                       </div>
@@ -740,37 +681,37 @@ export function ForensicsPlayground() {
                     <div className="space-y-4 font-mono text-xs">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="border border-border p-4 bg-background">
-                          <span className="text-muted-foreground block text-[10px]">ERROR LEVEL ANALYSIS (ELA+):</span>
+                          <span className="text-muted-foreground block text-[10px]">ELA MEAN (RAW VALUE):</span>
                           <span className="text-xl font-bold text-foreground">
-                            {((result.artifact_findings.ela_mean_score || 0) * 100).toFixed(1)}%
+                            {Number(result.artifact_findings.ela_mean_score || 0).toFixed(3)}
                           </span>
                         </div>
                         <div className="border border-border p-4 bg-background">
-                          <span className="text-muted-foreground block text-[10px]">FFT GRID ANOMALY SCORE:</span>
+                          <span className="text-muted-foreground block text-[10px]">FFT GRID (RAW VALUE):</span>
                           <span className="text-xl font-bold text-foreground">
-                            {((result.artifact_findings.fft_grid_score || 0) * 100).toFixed(1)}%
+                            {Number(result.artifact_findings.fft_grid_score || 0).toFixed(3)}
                           </span>
                         </div>
                       </div>
 
                       {/* Inverted Domain Check */}
                       <div className="border border-border p-4 bg-muted/20">
-                        <span className="text-muted-foreground block text-[10px] mb-1">INVERTED DOMAIN PREDICTION CONSISTENCY:</span>
+                          <span className="text-muted-foreground block text-[10px] mb-1">INVERTED-PASS DIAGNOSTIC (EXPLORATORY):</span>
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-foreground">
                             {result.inverted_prediction?.verdict || result.verdict} ({(
                               (result.inverted_prediction?.confidence || result.confidence) * 100
                             ).toFixed(1)}%)
                           </span>
-                          <span className="px-2 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500">
-                            CROSS-VALIDATED
+                          <span className="px-2 py-0.5 text-[10px] bg-amber-500/10 text-amber-600 border border-amber-500">
+                            NOT VALIDATED
                           </span>
                         </div>
                       </div>
 
                       {result.artifact_findings.flags && result.artifact_findings.flags.length > 0 && (
                         <div className="border border-amber-500/50 bg-amber-500/10 p-4">
-                          <span className="font-bold text-amber-500 block mb-2">DETECTED ARTIFACT FLAGS:</span>
+                          <span className="font-bold text-amber-500 block mb-2">EXPERIMENTAL FLAGS (NOT VERIFIED):</span>
                           <ul className="list-disc list-inside space-y-1 text-muted-foreground text-[11px]">
                             {result.artifact_findings.flags.map((flag, idx) => (
                               <li key={idx}>{flag}</li>

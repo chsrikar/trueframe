@@ -73,7 +73,7 @@ export function PlanSection() {
           <span className="text-xs font-mono text-[#ea580c] font-bold mb-2">// PHASE 02</span>
           <h3 className="text-base font-mono font-bold uppercase mb-3">Forensics Playground</h3>
           <p className="text-xs font-mono text-muted-foreground leading-relaxed">
-            Drag-and-drop image dropzone with instant client-side preview, file type validation, EXIF stripping check, and real-time state management.
+            Image upload, file preview, backend image validation, and request status.
           </p>
         </motion.div>
 
@@ -88,7 +88,7 @@ export function PlanSection() {
           <span className="text-xs font-mono text-[#ea580c] font-bold mb-2">// PHASE 03</span>
           <h3 className="text-base font-mono font-bold uppercase mb-3">FastAPI API Bridge</h3>
           <p className="text-xs font-mono text-muted-foreground leading-relaxed">
-            Connects to PyTorch via <code className="text-[#ea580c]">POST /api/analyze</code> (FastAPI + Uvicorn). Submits <code className="text-foreground font-bold">multipart/form-data</code> with automatic fallback handling.
+            Connects to PyTorch via <code className="text-[#ea580c]">POST /analyze</code> (FastAPI + Uvicorn). Submits <code className="text-foreground font-bold">multipart/form-data</code>; the API returns an error when the service is unavailable.
           </p>
         </motion.div>
 
@@ -103,7 +103,7 @@ export function PlanSection() {
           <span className="text-xs font-mono text-[#ea580c] font-bold mb-2">// PHASE 04</span>
           <h3 className="text-base font-mono font-bold uppercase mb-3">Explainable Dashboard</h3>
           <p className="text-xs font-mono text-muted-foreground leading-relaxed">
-            Renders Trust Score gauge (0–100), EXIF badge alerts, ELA/FFT spectral variance metrics, and interactive Grad-CAM heatmap overlays.
+            Shows raw classifier output and experimental metadata, ELA/FFT, and Grad-CAM diagnostics. These signals are not calibrated or validated authenticity scores.
           </p>
         </motion.div>
       </div>
@@ -121,7 +121,7 @@ export function PlanSection() {
             ARCHITECTURE_FLOW.json
           </span>
           <span className="text-[10px] tracking-[0.2em] uppercase text-background/60">
-            HTTP 200 OK
+            API CONTRACT
           </span>
         </div>
 
@@ -130,17 +130,17 @@ export function PlanSection() {
                                                     │
              ┌──────────────────────────────────────┴──────────────────────────────────────┐
              ▼                                      ▼                                      ▼
-[#6] EfficientNet-B0 Classifier         Metadata EXIF Parser                   Artifact Signal Engine
- • Model Inference (PyTorch GPU)         (Camera vs AI Signatures)               (ELA+ & 2D FFT Spectrum)
- • Predict Real vs AI-Generated                     │                                      │
- • Output Class Confidence Score                    │                                      │
+[#6] EfficientNet-B0 Face Classifier     Available Metadata                    Exploratory Image Signals
+ • PyTorch inference (GPU or CPU)       (EXIF/XMP fields)                      (ELA summary + FFT features)
+ • Genuine vs AI-generated face labels (not verified provenance)              (not validated verdicts)
+ • Raw uncalibrated softmax                       │                                      │
              │                                      │                                      │
              └──────────────────────────────────────┬──────────────────────────────────────┘
                                                     ▼
-                                          Trust Fusion Engine
-                                      (Weighted 50 / 25 / 25 Score)
+                                          Experimental Signal Summary
+                                      (Experimental heuristic summary)
                                                     │
-Client UI Dashboard  ◄──(JSON Response + Grad-CAM Heatmap Overlay)──┘`}
+Client UI Dashboard  ◄──(JSON + optional Grad-CAM visualization)──┘`}
         </pre>
       </motion.div>
     </section>
