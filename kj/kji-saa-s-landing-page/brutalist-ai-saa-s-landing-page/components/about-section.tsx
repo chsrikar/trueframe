@@ -162,6 +162,65 @@ export function MathsSection() {
   )
 }
 
+const LIMITATIONS = [
+  {
+    title: "Manipulated images are not a trained class",
+    detail: "The current labels are genuine and AI-generated. Face swaps and other edited/manipulated images are not covered, so the project does not claim to detect them.",
+    next: "Future work: collect labeled manipulation examples and evaluate them as a separate task.",
+  },
+  {
+    title: "Generalization needs broader testing",
+    detail: "The research pipeline uses one synthetic dataset family, and genuine-photo identity separation is not guaranteed. Results may change for new sources, generators, or image processing.",
+    next: "Future work: test across independent datasets, identities, and current generators.",
+  },
+  {
+    title: "Scores and visual signals have limits",
+    detail: "Raw softmax scores are not calibrated probabilities. Grad-CAM, ELA, FFT, and metadata are exploratory signals; none proves an image’s origin.",
+    next: "Future work: calibrate scores and validate each diagnostic against labeled evidence.",
+  },
+  {
+    title: "The model expects face images",
+    detail: "TRUEFRAME classifies the full uploaded image without a dedicated face-detection and crop stage. Non-face or unusual images may be outside its training distribution.",
+    next: "Future work: add face localization and evaluate robustness to image quality and framing.",
+  },
+]
+
+export function LimitationsSection() {
+  return (
+    <section id="challenges-limitations" className="w-full px-6 py-20 lg:px-12">
+      <div className="mb-8 flex items-center gap-4">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {"// SECTION: CHALLENGES_AND_LIMITATIONS"}
+        </span>
+        <div className="flex-1 border-t border-border" />
+        <span className="font-mono text-[10px] tracking-[0.2em] text-[#ea580c]">007</span>
+      </div>
+      <div className="mb-8 max-w-3xl">
+        <h2 className="mb-4 font-mono text-3xl font-bold uppercase leading-tight tracking-tight lg:text-5xl">
+          Challenges <span className="text-[#ea580c]">&amp; Limitations</span>
+        </h2>
+        <p className="font-mono text-sm leading-relaxed text-muted-foreground lg:text-base">
+          TRUEFRAME is a scoped research prototype. These limitations define what its current model and results can support—and what needs more data and testing.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {LIMITATIONS.map((item, index) => (
+          <article key={item.title} className="flex flex-col border-2 border-foreground bg-background p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="font-mono text-xs font-bold text-[#ea580c]">0{index + 1}</span>
+              <h3 className="font-mono text-sm font-bold uppercase">{item.title}</h3>
+            </div>
+            <p className="mb-4 flex-1 font-mono text-xs leading-relaxed text-muted-foreground">{item.detail}</p>
+            <p className="border-t border-border pt-3 font-mono text-[11px] leading-relaxed text-foreground">
+              <span className="font-bold text-[#ea580c]">NEXT: </span>{item.next}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ── main about section ── */
 export function AboutSection() {
   return (
