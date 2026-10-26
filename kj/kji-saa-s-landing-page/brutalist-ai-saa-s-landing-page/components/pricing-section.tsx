@@ -46,7 +46,7 @@ function StatusLine() {
   return (
     <div className="flex items-center gap-2 text-[10px] tracking-widest text-muted-foreground uppercase font-mono">
       <span className="h-1.5 w-1.5 bg-[#ea580c]" />
-      <span>benchmark: not recorded</span>
+      <span>held-out metrics: not reported</span>
     </div>
   )
 }
@@ -71,57 +71,50 @@ interface Tier {
 
 const TIERS: Tier[] = [
   {
-    id: "open-source",
-    name: "MODEL SCOPE",
-    price: "2",
-    period: "classes",
+    id: "image-fundamentals",
+    name: "IMAGE FUNDAMENTALS",
+    price: "2D",
+    period: "IMAGE INPUT",
     tag: null,
-    description: "A research classifier for genuine and AI-generated face images.",
+    description: "The project processes RGB face images and resizes them for a 2D image classifier.",
     features: [
-      { text: "CelebA-HQ and CASIA genuine photos", included: true },
-      { text: "SFHQ-T2I synthetic face images", included: true },
-      { text: "Generator-disjoint validation and test", included: true },
-      { text: "No manipulated/deepfake class", included: true },
-      { text: "No identity-disjoint guarantee", included: true },
-      { text: "No universal detector claim", included: true },
+      { text: "Module 1 connection: image representation and preprocessing", included: true },
+      { text: "RGB resize and normalization before inference", included: true },
+      { text: "Camera calibration and stereopsis are not implemented", included: true },
     ],
-    cta: "READ LIMITATIONS",
+    cta: "COURSE CONNECTION",
     highlighted: false,
   },
   {
-    id: "pro",
-    name: "HELD-OUT EVALUATION",
-    price: "PENDING",
-    period: "",
-    tag: "COLAB T4 RUN",
-    description: "No result is published until the new generator-held-out checkpoint has been evaluated.",
+    id: "features-learning",
+    name: "FEATURES & LEARNING",
+    price: "CNN",
+    period: "MODULES 2–3",
+    tag: "CORE COURSE LINK",
+    description: "The main connection is convolutional feature learning and transfer learning for image classification.",
     features: [
-      { text: "Per-source and per-generator metrics", included: true },
-      { text: "Confusion matrix and ROC-AUC", included: true },
-      { text: "Brier score and calibration error", included: true },
-      { text: "Test set reserved for final reporting", included: true },
-      { text: "Raw softmax is not calibrated", included: true },
-      { text: "Old scores are historical and excluded", included: true },
+      { text: "Convolutional layers learn local visual features", included: true },
+      { text: "ImageNet-pretrained EfficientNet-B0 is fine-tuned", included: true },
+      { text: "Supervised labels: genuine and AI-generated", included: true },
+      { text: "Grad-CAM visualizes influential regions; it does not name a cause", included: true },
     ],
-    cta: "RUN EVALUATION",
+    cta: "MODEL DETAILS",
     highlighted: true,
   },
   {
-    id: "enterprise",
-    name: "EXPERIMENTAL SIGNALS",
+    id: "evaluation-scope",
+    name: "IMAGE SIGNALS & EXPLAINABILITY",
     price: "DEMO",
     period: "",
-    tag: null,
-    description: "Optional explainability, metadata, and artifact outputs are exploratory heuristics.",
+    tag: "ELA · FFT · GRAD-CAM",
+    description: "Simple visual tools that accompany the classifier’s image result.",
     features: [
-      { text: "EfficientNet-B0 backbone", included: true },
-      { text: "Grad-CAM explainability", included: true },
-      { text: "EXIF & metadata extraction", included: true },
-      { text: "ELA and frequency summaries", included: true },
-      { text: "Heuristic score, not probability", included: true },
-      { text: "No verified forensic conclusion", included: true },
+      { text: "ELA: highlights areas that compress differently when the image is re-saved", included: true },
+      { text: "FFT: shows repeating patterns in the image’s frequency content", included: true },
+      { text: "Grad-CAM: highlights image regions that influenced the CNN score", included: true },
+      { text: "These visual signals help inspect a result; they do not prove image origin", included: true },
     ],
-    cta: "GENERATE REPORT",
+    cta: "DEMO LIMITATIONS",
     highlighted: false,
   },
 ]
@@ -256,7 +249,7 @@ export function PricingSection() {
         className="flex items-center gap-4 mb-8"
       >
         <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-mono">
-          {"// SECTION: EVALUATION_METRICS"}
+          {"// SECTION: COMPUTER_VISION_COURSE_MAP"}
         </span>
         <div className="flex-1 border-t border-border" />
         <BlinkDot />
@@ -275,10 +268,10 @@ export function PricingSection() {
       >
         <div className="flex flex-col gap-3">
           <h2 className="text-2xl lg:text-3xl font-mono font-bold tracking-tight uppercase text-foreground text-balance">
-            Evaluation Dashboard
+            How TRUEFRAME Connects to Computer Vision
           </h2>
           <p className="text-xs lg:text-sm font-mono text-muted-foreground leading-relaxed max-w-md">
-            TRUEFRAME is rigorously evaluated on a held-out test set to ensure high precision and recall across all classes.
+            TRUEFRAME is a supervised face-image classifier. It directly applies CNN feature learning and transfer learning; calibration, stereopsis, segmentation, and object detection are not part of this demo.
           </p>
         </div>
         <StatusLine />
@@ -300,7 +293,7 @@ export function PricingSection() {
         className="flex items-center gap-3 mt-6"
       >
         <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-mono">
-          {"* Metrics evaluated on a held-out test set."}
+          {"* ELA, FFT, and Grad-CAM are exploratory visual aids in this project."}
         </span>
         <div className="flex-1 border-t border-border" />
       </motion.div>

@@ -20,7 +20,8 @@ import {
   FileText,
   Contrast,
   SplitSquareVertical,
-  Crosshair
+  Crosshair,
+  Info,
 } from "lucide-react"
 
 import {
@@ -406,7 +407,7 @@ export function ForensicsPlayground() {
                           )}
                           <div>
                             <span className="font-mono text-[10px] uppercase tracking-widest block opacity-80">
-                              CLASSIFICATION VERDICT
+                              MODEL CLASSIFICATION
                             </span>
                             <h4 className="font-pixel text-2xl sm:text-3xl font-bold uppercase tracking-tight">
                               {result.verdict}
@@ -416,12 +417,33 @@ export function ForensicsPlayground() {
 
                         <div className="text-right font-mono">
                           <span className="text-[10px] uppercase tracking-widest block opacity-80">
-                            MODEL CONFIDENCE
+                            MODEL SCORE
                           </span>
                           <span className="text-2xl font-bold">
                             {(result.confidence * 100).toFixed(1)}%
                           </span>
                         </div>
+                      </div>
+
+                      {/* Plain-language explanation of the classifier output */}
+                      <div className="border border-[#ea580c]/40 bg-[#ea580c]/5 p-4 sm:p-5">
+                        <div className="flex items-center gap-2 mb-2 font-mono text-xs font-bold uppercase tracking-wider text-[#ea580c]">
+                          <Info className="h-4 w-4" />
+                          MODEL SUMMARY
+                        </div>
+                        {result.illustrative ? (
+                          <p className="font-mono text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                            This is an illustrative sample result, not a prediction made from analyzing this image.
+                          </p>
+                        ) : isGenuine ? (
+                          <p className="font-mono text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                            The model leaned toward Genuine (Real) for this image. This is a demonstration estimate, not verification of the image’s origin.
+                          </p>
+                        ) : (
+                          <p className="font-mono text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                            The model leaned toward AI-Generated for this image. This is a demonstration estimate, not verification of how the image was created.
+                          </p>
+                        )}
                       </div>
 
                       {/* Trust Score & Agreement Grid */}

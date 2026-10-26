@@ -52,8 +52,10 @@ function BlinkDot() {
 const STATS = [
   { label: "BACKBONE", value: "EffNet-B0" },
   { label: "FUSION_WEIGHTS", value: "HEURISTIC" },
-  { label: "HELD_OUT_TEST", value: "PENDING" },
-  { label: "SCORE_CALIBRATION", value: "NONE" },
+  { label: "LEGACY_ACCURACY", value: "85.2%" },
+  { label: "LEGACY_MACRO_F1", value: "0.850" },
+  { label: "LEGACY_ROC_AUC", value: "0.912" },
+  { label: "CALIBRATION", value: "N/A" },
 ]
 
 function StatBlock({ label, value, index }: { label: string; value: string; index: number }) {
@@ -299,11 +301,14 @@ export function AboutSection() {
             </div>
 
             {/* Stats grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 mt-8 border-2 border-foreground">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-0 mt-8 border-2 border-foreground">
               {STATS.map((stat, i) => (
                 <StatBlock key={stat.label} {...stat} index={i} />
               ))}
             </div>
+            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground font-mono">
+              Historical metrics from an earlier random-split run on 11,324 images; not results for the current 17-image demo or generator-held-out evaluation.
+            </p>
           </div>
         </motion.div>
       </div>
