@@ -77,6 +77,91 @@ function StatBlock({ label, value, index }: { label: string; value: string; inde
   )
 }
 
+const CV_MATHS = [
+  {
+    title: "Convolution",
+    formula: "y(i,j) = Σₘ Σₙ x(i−m,j−n) k(m,n)",
+    explanation: "A learned filter slides over image pixels and responds to local patterns. EfficientNet uses convolutional layers to build features for the classifier.",
+  },
+  {
+    title: "Softmax scores",
+    formula: "pₖ = eᶻᵏ / Σⱼ eᶻʲ",
+    explanation: "The two model outputs become relative scores for genuine and AI-generated. In this project they are raw, uncalibrated scores—not guaranteed probabilities.",
+  },
+  {
+    title: "Accuracy, precision, recall & F1",
+    formula: "Accuracy = (TP + TN) / N\nPrecision = TP / (TP + FP)\nRecall = TP / (TP + FN)\nF1 = 2PR / (P + R)",
+    explanation: "Compare predictions with known labels. Here, AI-generated is the positive class; these metrics are meaningful only on an appropriately independent labeled test set.",
+  },
+  {
+    title: "ROC-AUC",
+    formula: "AUC = ∫₀¹ TPR(FPR) dFPR",
+    explanation: "Across decision thresholds, compare the true-positive rate with the false-positive rate. The area summarizes how well scores rank the two classes.",
+  },
+  {
+    title: "2D Fourier transform (FFT)",
+    formula: "F(u,v) = Σₓ Σᵧ I(x,y)e⁻²πi(ux/W + vy/H)",
+    explanation: "Re-express image variation as spatial frequencies. TRUEFRAME summarizes this spectrum as an exploratory signal; it is not proof that an image is generated.",
+  },
+  {
+    title: "Grad-CAM",
+    formula: "αₖᶜ = (1/Z) Σᵢ Σⱼ ∂yᶜ/∂Aₖᵢⱼ\nLᶜ = ReLU(Σₖ αₖᶜ Aₖ)",
+    explanation: "Gradients weight CNN feature maps to make a heatmap of regions influencing a selected class score. A hotspot is a visualization, not a causal explanation.",
+  },
+  {
+    title: "Error Level Analysis (ELA)",
+    formula: "D(x,y) = |I(x,y) − JPEG₇₅(I)(x,y)|",
+    explanation: "Compare the image with a JPEG-recompressed copy. TRUEFRAME displays the differences; compression, saving history, and edits can all affect them.",
+  },
+]
+
+function MathsCard({ title, formula, explanation, wide = false }: {
+  title: string
+  formula: string
+  explanation: string
+  wide?: boolean
+}) {
+  return (
+    <article className={`border-2 border-foreground bg-background p-5 ${wide ? "md:col-span-2" : ""}`}>
+      <h3 className="mb-3 font-mono text-sm font-bold uppercase text-[#ea580c]">{title}</h3>
+      <pre className="mb-4 whitespace-pre-wrap break-words border-y border-border py-3 font-mono text-sm leading-relaxed text-foreground">
+        {formula}
+      </pre>
+      <p className="font-mono text-xs leading-relaxed text-muted-foreground">{explanation}</p>
+    </article>
+  )
+}
+
+export function MathsSection() {
+  return (
+    <section id="maths-in-cv" className="w-full px-6 py-20 lg:px-12">
+      <div className="mb-8 flex items-center gap-4">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {"// SECTION: MATHS_IN_COMPUTER_VISION"}
+        </span>
+        <div className="flex-1 border-t border-border" />
+        <span className="font-mono text-[10px] tracking-[0.2em] text-[#ea580c]">006</span>
+      </div>
+      <div className="mb-8 max-w-3xl">
+        <h2 className="mb-4 font-mono text-3xl font-bold uppercase leading-tight tracking-tight lg:text-5xl">
+          Maths in <span className="text-[#ea580c]">Computer Vision</span>
+        </h2>
+        <p className="font-mono text-sm leading-relaxed text-muted-foreground lg:text-base">
+          The equations behind TRUEFRAME’s image features, class scores, evaluation metrics, and exploratory visualizations—explained in the context of this project.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {CV_MATHS.map((item, index) => (
+          <MathsCard key={item.title} {...item} wide={index === CV_MATHS.length - 1} />
+        ))}
+      </div>
+      <p className="mt-5 border-l-2 border-[#ea580c] pl-4 font-mono text-xs leading-relaxed text-muted-foreground">
+        Evaluation formulas require independent labeled examples for a valid test result. The current 17-image demo reuses its examples across splits, so its replay scores do not measure performance on unseen images.
+      </p>
+    </section>
+  )
+}
+
 /* ── main about section ── */
 export function AboutSection() {
   return (
